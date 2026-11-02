@@ -146,6 +146,15 @@ cmd_start() {
 
   if wait_ready; then
     note "就绪：${BASE_URL}（健康检查通过）"
+    echo
+    echo "  ⚠ cred 只有 **API**，没有页面。管理页面在 wist-cred-web（dev 不起它）。"
+    echo "    浏览器打开 ${BASE_URL} 会得到 404 —— 这是正常的。"
+    echo
+    echo "  GET  ${BASE_URL}/healthz"
+    echo "  GET  ${BASE_URL}/version"
+    echo "  GET  ${BASE_URL}/api/v1/credentials  -H 'x-wist-operator: ${OPERATOR}'   # 缺这个头会 401"
+    echo "  POST ${BASE_URL}/api/v1/credentials   → 用 ./dev/svc.sh token"
+    echo
     note "日志：${LOG_FILE}"
   else
     echo "启动失败，日志尾部：" >&2
@@ -186,6 +195,7 @@ cmd_status() {
   echo "store  : ${STATE_DIR}/credentials.db"
   if healthy; then
     echo "health : ok"
+    echo "API    : ${BASE_URL}/healthz  /version  /api/v1/credentials（需 x-wist-operator 头）"
     if command -v jq >/dev/null 2>&1; then
       echo "entries: $(curl -fsS "${BASE_URL}/api/v1/credentials" \
         -H "x-wist-operator: ${OPERATOR}" | jq '.credentials | length')"

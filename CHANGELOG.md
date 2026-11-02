@@ -13,3 +13,5 @@
 - `sys-prj.yml`：`identity/` 进 contract、`configs/` 进 backup、cred 以 999:999 运行的 perms
 - `dev/svc.sh`：开发态入口 —— `start` / `stop` / `restart` / `status` / `logs` / `token` / `verify` / `demo`
   （本地进程，不进 docker、不做 TLS；`verify`/`demo` 直接跑 `wist-auth` 的真实验证实现）
+  - `start` 成功后打印“本服务只有 API、没有页面”，并把可用的端点与 curl 示例列出来
+  - `status` 也列端点，避免把“浏览器 404”当成服务挂了
