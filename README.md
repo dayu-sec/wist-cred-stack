@@ -51,16 +51,21 @@ gops run start
 ## 开发态（本地跑，不进 docker）
 
 ```sh
-./dev/svc.sh start          # cargo build + 起 cred（127.0.0.1:18443）
-./dev/svc.sh status         # 进程 / 端口 / 表里条目数
+./dev/svc.sh start          # 起 cred（:18443）+ web（:5174）
+./dev/svc.sh status         # 两个组件 + 表里条目数
 ./dev/svc.sh token          # 创建一条凭据，打印明文（只此一次）
 ./dev/svc.sh verify <token> # 用 wist-auth 的**真实实现**验一条 token
 ./dev/svc.sh demo           # 签发 → 验证 → 撤销 → 再验证（一键闭环）
-./dev/svc.sh logs -f
+./dev/svc.sh logs web -f
 ./dev/svc.sh stop
+
+./dev/svc.sh start web      # 只起页面（cred 得已经在跑）
+./dev/svc.sh restart cred   # 改了 Rust 代码后重启后端
 ```
 
-dev 态刻意不装 nginx、不做 TLS：`x-wist-operator` 由你显式带（`DEV_OPERATOR`，默认 `dev`）。
+**页面在 <http://127.0.0.1:5174>**；`http://127.0.0.1:18443/` 只会返回一份自述 JSON。
+
+dev 态不做入口认证：`x-wist-operator` 由 vite 代理注入（`DEV_OPERATOR`，默认 `dev`）。
 凭据表落 `dev/configs/state/`，与发布态互不影响。
 
 依赖同级仓库（可用 env 覆盖）：
@@ -68,8 +73,10 @@ dev 态刻意不装 nginx、不做 TLS：`x-wist-operator` 由你显式带（`DE
 | env | 默认 |
 |---|---|
 | `WIST_CRED_SRC` | `../../wist/wist-cred` |
+| `WIST_CRED_WEB_SRC` | `../../wist/wist-cred-web` |
 | `WIST_AUTH_SRC` | `../../wist/wist-auth` |
 | `DEV_ADDR` | `127.0.0.1:18443` |
+| `WEB_PORT` | `5174` |
 
 ## 两条约束不是文案，是启动期会拦的
 
