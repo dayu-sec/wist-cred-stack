@@ -148,7 +148,7 @@ cmd_start() {
     note "就绪：${BASE_URL}（健康检查通过）"
     echo
     echo "  ⚠ cred 只有 **API**，没有页面。管理页面在 wist-cred-web（dev 不起它）。"
-    echo "    浏览器打开 ${BASE_URL} 会得到 404 —— 这是正常的。"
+    echo "    浏览器打开 ${BASE_URL}/ 会看到一份自述（端点列表），不是页面。"
     echo
     echo "  GET  ${BASE_URL}/healthz"
     echo "  GET  ${BASE_URL}/version"
