@@ -1,0 +1,32 @@
+test_envs:
+  dep_root: ''
+  deps: []
+
+# 宿主 bind 挂载权限（`gops sys perms`）：
+#   cred 以 999:999 运行，要写 `configs/cred/state`（凭据表）。
+#   web 是 nginx 官方镜像，默认 root，入口脚本会降权 —— 这里不声明，让它按默认走。
+perms:
+  services:
+    cred:
+      uid: 999
+      gid: 999
+
+# `gops sys package` 打包时排除的路径（资源树里都是可重建 / 每部署一份的东西）。
+ignore:
+  - configs
+
+# 现场态：升级/重建时**不覆盖、也不删**。
+protect:
+  - .env
+  - configs
+
+# 对外契约：站点身份（入口服务器证书 + 私钥）是**不可重建**的现场事实，
+# 丢了就得让所有人重新接受新证书。整目录进 contract。
+contract:
+  - identity
+
+# 备份选取：渲染出的配置（含凭据表 state/）。
+# ⚠ 凭据表里**只有 sha256 摘要**，没有明文 —— 泄了也不能反推出 token；
+#    但条目本身能看出"给谁发过什么权限"，所以仍然按运维资料对待。
+backup:
+  - configs

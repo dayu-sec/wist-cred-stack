@@ -1,0 +1,31 @@
+# 运行期配置与凭据表（现场生成；含 sha256 摘要与站点私钥路径）
+/configs/
+/configs*/
+
+# 开发态运行物（dev/svc.sh 生成：本地凭据表 / pid / 日志 / dev 配置）
+/dev/configs/
+/dev/.run/
+
+# 站点身份（服务器证书 + 私钥）：现场生成、含私钥，绝不入库
+/identity/
+/identity*/
+
+# 变量解析结果（gops sys update / package 生成）
+sys/resolved_vars.yml
+
+# 现场值由 ops-prj 项目维护（values/<系统名>/sys_value.yml），本仓不跟踪 values/ 内容
+values/
+.env
+# 交付锁（`gops sys package` 生成）
+/deliver.lock
+
+# 密钥目录（本服务目前不持密钥，保留约定）
+/.wist/
+/.galaxy/
+
+# macOS
+.DS_Store
+.report
+.run*
+# 迁移（gops >= 1.4）：模块按目标模型分组
+sys/*/mods
