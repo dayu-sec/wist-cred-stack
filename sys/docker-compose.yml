@@ -31,8 +31,19 @@ services:
       - ${CRED_CONFIG_DIR}/wist-cred.toml:/wist-cred/wist-cred.toml:ro
       # 凭据表（只存 sha256 摘要）：必须可写、必须持久。
       - ${CRED_CONFIG_DIR}/state:/wist-cred/state
-      # 站点身份 + 推送用的 CA 信任锚（只读）
-      - ./identity/cred:/wist-cred/identity:ro
+      # **逐个文件挂，不挂整个 identity/cred 目录**：cred 只需要这几样，
+      # 而 `identity/cred` 里还躺着 ca-i.key（签 cred 自己身份的 CA 私钥）与站点私钥。
+      - ./identity/cred/ca-s.crt:/wist-cred/identity/ca-s.crt:ro
+      # CA-S 私钥：cred 是签发方（按 X 的 CSR 签它们的服务器证书），
+      # 所以它必须能用到私钥——与 center 持 CA-G 私钥同构。只读、0600。
+      - ./identity/cred/ca-s.key:/wist-cred/identity/ca-s.key:ro
+      # CA-I 的**公开证书**：交给 X 当 client_ca（证明"来的是 cred"）。不含私钥。
+      - ./identity/cred/ca-i.crt:/wist-cred/identity/ca-i.crt:ro
+      - ./identity/cred/cred-client.crt:/wist-cred/identity/cred-client.crt:ro
+      - ./identity/cred/cred-client.key:/wist-cred/identity/cred-client.key:ro
+      # 部署态种子（每个 X 一个 `peer.json`，只读）。
+      # 注册表本体在 ${CRED_CONFIG_DIR}/state/peers.json（可写）。
+      - ./identity/cred/onboarding:/wist-cred/identity/onboarding:ro
     # **故意没有 ports**：只有 web 能到它。
     networks:
       crednet:

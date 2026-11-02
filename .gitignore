@@ -5,6 +5,8 @@
 # 开发态运行物（dev/svc.sh 生成：本地凭据表 / pid / 日志 / dev 配置）
 /dev/configs/
 /dev/.run/
+# dev 态 PKI 与接入包（同 /identity：含私钥，绝不入库）
+/dev/identity/
 
 # 站点身份（服务器证书 + 私钥）：现场生成、含私钥，绝不入库
 /identity/

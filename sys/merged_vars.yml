@@ -29,7 +29,13 @@ system:
   value: '7776000'
 - name: CRED_OVERLAP_SECONDS
   value: '300'
-- name: CENTER_INTERNAL_URL
-  value: https://center:3103/api/v1/internal/credentials
+- name: CRED_PKI_PEERS
+  value: wist-ingest=ingest.internal
+- name: CRED_ONBOARDING_TTL_SECONDS
+  value: '900'
+- name: CRED_PEER_CERT_TTL_SECONDS
+  value: '7776000'
+- name: CRED_HEARTBEAT_SECONDS
+  value: '30'
 - name: TZ
   value: Asia/Shanghai

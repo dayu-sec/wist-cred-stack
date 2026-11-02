@@ -13,6 +13,11 @@ mod operators {
     // ① 备料：站点证书（identity/cred）+ 渲染值（configs/cred/*.value.json）+ 入口 htpasswd。
     gx.cmd ( "./scripts/init-cred.sh configs/cred $(printenv WEB_DOMAIN)" );
 
+    // ①b 双向认证的 PKI + 每个验证方的接入包（identity/cred/onboarding/<name>/）。
+    //    幂等：CA 与已在的证书一律不重签（重签会把已生效的握手全部打断）。
+    //    `CRED_PKI_PEERS` 是 `name=host` 空格分隔列表，host 即该 X 证书的 CN/SAN。
+    gx.cmd ( "./scripts/gen-pki.sh identity/cred $(printenv CRED_PKI_PEERS)" );
+
     // ② 渲染 cred 运行配置（依赖 ①）。
     //    模板只写 ${...} 占位，真值不落模板；密钥不在这里（本服务目前不持密钥）。
     gx.tpl (

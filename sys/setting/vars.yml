@@ -63,9 +63,27 @@ system:
   - name: CRED_OVERLAP_SECONDS
     value: '300'              # 续期重叠窗口
 
-  # ── 推送目标（P3 才真正使用；P2 人工分发时留着也不影响启动）──
-  - name: CENTER_INTERNAL_URL
-    value: https://center:3103/api/v1/internal/credentials
+  # ── 认证系统（验证方 X）────────────────────────────────────
+  #
+  # 注意：**这不是推送目标的配置项**。这里只是 "部署态种子"：
+  # `scripts/gen-pki.sh` 按 `name=host` 写出 `identity/cred/onboarding/<name>/peer.json`，
+  # cred 启动时**导入一次**到 `state/peers.json`；之后新增/改地址都走页面，不用重启。
+  #
+  # 第三个字段（`=https://…`）是该系统的收数地址：
+  #   · 不给 = 只做手工分发（不推送、不心跳）；
+  #   · 给了 = cred 把凭据摘要推过去，并按 heartbeat 周期探它的 /healthz。
+  - name: CRED_PKI_PEERS
+    value: wist-ingest=ingest.internal
+
+  # 一次性接入券的有效期。上限 3600（加载期强制）。
+  - name: CRED_ONBOARDING_TTL_SECONDS
+    value: '900'
+  # 签给每个验证方的服务器证书有效期（90d）。
+  - name: CRED_PEER_CERT_TTL_SECONDS
+    value: '7776000'
+  # 心跳间隔（秒）；0 = 关闭。
+  - name: CRED_HEARTBEAT_SECONDS
+    value: '30'
 
   - name: TZ
     value: Asia/Shanghai

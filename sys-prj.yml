@@ -3,7 +3,7 @@ test_envs:
   deps: []
 
 # 宿主 bind 挂载权限（`gops sys perms`）：
-#   cred 以 999:999 运行，要写 `configs/cred/state`（凭据表）。
+#   cred 以 999:999 运行，要写 `configs/cred/state`（凭据表 + 认证系统注册表 `peers.json`）。
 #   web 是 nginx 官方镜像，默认 root，入口脚本会降权 —— 这里不声明，让它按默认走。
 perms:
   services:

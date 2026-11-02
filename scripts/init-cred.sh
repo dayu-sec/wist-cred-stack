@@ -13,7 +13,8 @@
 #
 # 环境（gops 把合并后的系统变量以环境变量注入）：
 #   CRED_IP / WEB_IP / CRED_MAX_TTL_SECONDS / CRED_BREAK_GLASS_TTL_SECONDS /
-#   CRED_OVERLAP_SECONDS / CENTER_INTERNAL_URL / WEB_HTPASSWD
+#   CRED_OVERLAP_SECONDS / CRED_ONBOARDING_TTL_SECONDS / CRED_PEER_CERT_TTL_SECONDS /
+#   CRED_HEARTBEAT_SECONDS / WEB_HTPASSWD
 #   CRED_BOOTSTRAP_PASSWORD  可选：指定 bootstrap 账号口令（缺省随机生成并打印一次）
 #
 # 本服务**不持密钥**：凭据明文只在创建响应出现一次，落盘只有 sha256 摘要。
@@ -35,7 +36,12 @@ WEB_IP="${WEB_IP:-172.28.90.11}"
 MAX_TTL="${CRED_MAX_TTL_SECONDS:-2592000}"
 BREAK_GLASS_TTL="${CRED_BREAK_GLASS_TTL_SECONDS:-7776000}"
 OVERLAP="${CRED_OVERLAP_SECONDS:-300}"
-CENTER_INTERNAL_URL="${CENTER_INTERNAL_URL:-https://center:3103/api/v1/internal/credentials}"
+ONBOARDING_TTL="${CRED_ONBOARDING_TTL_SECONDS:-900}"
+PEER_CERT_TTL="${CRED_PEER_CERT_TTL_SECONDS:-7776000}"
+HEARTBEAT="${CRED_HEARTBEAT_SECONDS:-30}"
+# peer 清单不进渲染值：它是 `state/peers.json` 的种子，由 `scripts/gen-pki.sh` 写成
+# `identity/cred/onboarding/<name>/peer.json`，cred 启动时导入一次。
+# 之后新增/修改都走页面（`POST /api/v1/onboarding/peers`），不再改 vars。
 WEB_HTPASSWD="${WEB_HTPASSWD:-configs/web/htpasswd}"
 
 # web 的配置目录固定落栈根，避免脚本从别的工作目录被调用时写错地方。
@@ -84,7 +90,9 @@ write_json "${CONFIG_DIR}/wist-cred.value.json" cat <<EOF
   "max_ttl_seconds": ${MAX_TTL},
   "break_glass_max_ttl_seconds": ${BREAK_GLASS_TTL},
   "overlap_seconds": ${OVERLAP},
-  "center_internal_url": "${CENTER_INTERNAL_URL}"
+  "onboarding_ttl_seconds": ${ONBOARDING_TTL},
+  "peer_cert_ttl_seconds": ${PEER_CERT_TTL},
+  "heartbeat_seconds": ${HEARTBEAT}
 }
 EOF
 

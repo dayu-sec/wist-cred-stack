@@ -1,19 +1,33 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.0-alpha] - 2026-11-03
 
-### Added
+首个可部署栈：`wist-cred`（凭据服务）+ `wist-cred-web`（管理页面）一套编排，
+带双向认证所需的 PKI 生成与验证方接入脚本。
 
-- **骨架**：`sys/docker-compose.yml`（cred + web 两个服务、专用 bridge 网段、cred 不对宿主发布端口）
-- `sys/setting/vars.yml`：镜像、网段与固定 IP、宿主入口、签发上限、推送目标占位
-- `sys/configs/cred/wist-cred.toml.tpl`：`listen_addr` 用容器私网 IP、`trusted_peers` 只放 web（S1 / S3）
-- `sys/configs/web/nginx.conf.tpl`：终止 TLS + 静态 + `/api` 反代 + **只由 nginx 写**操作者头
-- `scripts/init-cred.sh`：渲染值 + 站点证书 + bootstrap htpasswd（全幂等）
-- `scripts/ensure-cred-server-cert.sh`：自签站点证书（带 SAN，LibreSSL 兼容）
-- `sys-prj.yml`：`identity/` 进 contract、`configs/` 进 backup、cred 以 999:999 运行的 perms
-- `dev/svc.sh`：开发态入口 —— 组件 `cred` / `web`，`start` / `stop` / `restart` / `status` / `logs` / `token` / `verify` / `demo`
-  （本地进程，不进 docker、不做 TLS；`verify`/`demo` 直接跑 `wist-auth` 的真实验证实现）
-  - `start` 默认起全部：cred :18443 + web（vite）:5174；`start web` / `restart cred` 可单点
-  - `start` 成功后打印页面地址、API 端点与 curl 示例
-  - `status` 同时报两个组件的健康与表里条目数
-  - 不依赖 bash 4（macOS 自带 3.2 可跑）
+### 新增
+
+- **两个容器 + 一个宿主入口**：web 终止 TLS 并托管页面，`/api` 反代给 cred；
+  cred 不发布任何宿主端口，只走专用网段（它的入站是明文 HTTP + 来源地址白名单）。
+- **接入即用**：`scripts/gen-pki.sh` 生成两把 CA —— 一把签验证方的服务器证书，
+  一把签 cred 自己的客户端证书（一把 CA 只干一件事）；验证方的私钥**从不生成在这里**。
+- **验证方一键接入**：页面生成 `curl … | bash` 命令，对方机器上生成密钥、只交证书签名请求，
+  证书运行期签出；`/onboarding/` 在入口上单独一条免认证 location，且不缓存。
+- **可联通探测**：cred 用自己的客户端证书按周期探每个认证系统，页面显示在线/不通与延迟。
+- `dev/svc.sh`：开发态一条命令起 cred + web（本地进程、不做 TLS），
+  并提供 `token` / `verify` / `demo` / `onboard` 等自测入口；`verify`/`demo` 跑的是
+  验证侧真实实现，不是模拟。
+- 三个端到端自检脚本：接入（含券重放）、双向握手、心跳。
+
+### 变更
+
+- **认证系统改为运行期实体**：部署种子只负责首次导入，之后新增系统、改收数地址都在页面上做，
+  不需要 `localize`、也不需要重启。
+- 推送目标不再写进配置：一套共用身份 + 每个系统自己的地址，地址跟着注册表走。
+- `dev/svc.sh demo` 的受众与角色改为从注册表读取，写死的名字在接入别的系统后会失效。
+
+### 安全
+
+- CA-I（签 cred 客户端证书）的**私钥不进容器**；容器只拿到公开证书当信任锚。
+- 入口只由 nginx 写操作者身份头，客户端自带的同名头不会透传；cred 再用来源地址白名单二次确认。
+- 站点私钥与 CRED 私钥只用只读挂载，逐个文件挂，不挂整个 identity 目录。

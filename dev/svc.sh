@@ -14,6 +14,7 @@
 #   ./dev/svc.sh token   [选项]                 创建一条凭据并打印明文（只此一次）
 #   ./dev/svc.sh verify  <token> [--audience wist-center]
 #   ./dev/svc.sh demo                           签发 → 验证 → 撤销 → 再验证
+#   ./dev/svc.sh onboard [peer]                生成接入链接，打印 `curl … | bash`（默认 wist-ingest）
 #
 # 例：
 #   ./dev/svc.sh start                 # 后端 + 页面
@@ -54,6 +55,7 @@ AUTH_SRC="${WIST_AUTH_SRC:-${ROOT}/wist/wist-auth}"
 DEV_DIR="${STACK_ROOT}/dev"
 CONF_DIR="${DEV_DIR}/configs"
 STATE_DIR="${CONF_DIR}/state"
+PKI_DIR="${DEV_DIR}/identity"
 CONF="${CONF_DIR}/cred.toml"
 RUN_DIR="${DEV_DIR}/.run"
 CRED_PID_FILE="${RUN_DIR}/cred.pid"
@@ -110,6 +112,14 @@ wait_for() {
 cred_pid() { read_pid "${CRED_PID_FILE}"; }
 cred_healthy() { curl -fsS --max-time 1 "${BASE_URL}/healthz" >/dev/null 2>&1; }
 
+# 双向认证用的 PKI + 接入包（dev 也走真证书，不提供 mock）。
+# 幂等：已有的 CA / 证书不会被重签。
+ensure_pki() {
+  local peers="${DEV_PKI_PEERS:-wist-ingest=ingest.internal}"
+  "${STACK_ROOT}/scripts/gen-pki.sh" "${PKI_DIR}" ${peers} >/dev/null
+  note "PKI/接入包就绪：${PKI_DIR}/onboarding"
+}
+
 write_cred_config() {
   mkdir -p "${CONF_DIR}" "${STATE_DIR}" "${RUN_DIR}"
   local tmp="${CONF}.tmp.$$"
@@ -129,6 +139,22 @@ digest = "sha256"
 max_ttl_seconds = 2592000
 break_glass_max_ttl_seconds = 7776000
 overlap_seconds = 300
+
+[push]
+client_cert = "${PKI_DIR}/cred-client.crt"
+client_key = "${PKI_DIR}/cred-client.key"
+ca = "${PKI_DIR}/ca-s.crt"
+timeout_seconds = 5
+
+[onboarding]
+dir = "${PKI_DIR}/onboarding"
+store_path = "${STATE_DIR}/peers.json"
+script_ttl_seconds = 900
+ca_cert = "${PKI_DIR}/ca-s.crt"
+ca_key = "${PKI_DIR}/ca-s.key"
+client_ca = "${PKI_DIR}/ca-i.crt"
+peer_cert_ttl_seconds = 7776000
+heartbeat_seconds = 30
 EOF
   if [[ -f "${CONF}" ]] && cmp -s "${tmp}" "${CONF}"; then
     rm -f "${tmp}"
@@ -147,6 +173,7 @@ start_cred() {
   fi
 
   require_cmd curl
+  ensure_pki
   write_cred_config
 
   if [[ "${do_build}" == "1" ]]; then
@@ -351,6 +378,8 @@ cmd_status() {
     if command -v jq >/dev/null 2>&1; then
       echo "  entries: $(curl -fsS "${BASE_URL}/api/v1/credentials" \
         -H "x-wist-operator: ${OPERATOR}" | jq '.credentials | length')"
+      echo "  peers  : $(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" \
+        -H "x-wist-operator: ${OPERATOR}" | jq -r '[.peers[].name] | join(", ")')"
     fi
   else
     echo "  health: 不可达"
@@ -454,16 +483,50 @@ cmd_verify() {
     --audience "${audience}")
 }
 
+# 生成一次性接入链接并打印可直接粘贴的一行命令。
+cmd_onboard() {
+  require_cmd curl
+  require_cmd jq
+  cred_healthy || die "cred 没在跑，先 ./dev/svc.sh start cred"
+
+  local peer="${1:-wist-ingest}"
+  local minted path ttl
+  minted="$(curl -fsS -X POST "${BASE_URL}/api/v1/onboarding/peers/${peer}/script" \
+    -H "x-wist-operator: ${OPERATOR}")" || die "签发接入链接失败（peer 存在吗？）"
+  path="$(echo "${minted}" | jq -r .path)"
+  ttl="$(echo "${minted}" | jq -r .expires_in)"
+
+  echo "接入命令（券 ${ttl}s 内有效，登记时作废）："
+  echo
+  echo "  curl -fsSLk ${BASE_URL}${path} | bash"
+  echo
+  echo "  只落材料不改配置：  ... | bash"
+  echo "  顺带写进配置：      ... | bash -s -- --config /etc/x/ctrl.toml"
+  echo "  并重启：            ... | bash -s -- --config /etc/x/ctrl.toml --restart 'systemctl restart x-ctrl'"
+  echo
+  echo "X 在本机生成密钥（永不上送），只交 CSR；证书由 CA-S 按 CSR 签。"
+  echo "材料落点默认 /etc/wist/${peer}（可用 --dir 改）。"
+}
+
 cmd_demo() {
   require_cmd curl
   require_cmd jq
   cred_healthy || die "cred 没在跑，先 ./dev/svc.sh start cred"
 
-  local created token id audience
+  local created token id audience peer roles
+  # 受众与角色都从注册表里取：写死的名字在接入别的系统后就失效了。
+  peer="$(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" -H "x-wist-operator: ${OPERATOR}" \
+    | jq -r '.peers[0].name // empty')"
+  [[ -n "${peer}" ]] || die "还没有认证系统，先 ./dev/svc.sh onboard 接入一个"
+  roles="$(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" -H "x-wist-operator: ${OPERATOR}" \
+    | jq -r '.peers[0].roles // [] | join(",")')"
+  [[ -n "${roles}" ]] || die "${peer} 还没登记角色；接入时带 --roles a,b,c"
+
   created="$(curl -fsS -X POST "${BASE_URL}/api/v1/credentials" \
     -H "x-wist-operator: ${OPERATOR}" \
     -H 'content-type: application/json' \
-    -d '{"subject":"ci-nightly","purpose":"dev demo","roles":["investigation:run"],"resources":{"agents":["agent-7f3"]},"audience":"wist-center"}')"
+    -d "$(jq -nc --arg audience "${peer}" --arg roles "${roles}" \
+      '{subject:"ci-nightly",purpose:"dev demo",roles:($roles | split(",")),resources:{agents:["agent-7f3"]},audience:$audience}')")"
   token="$(echo "$created" | jq -r .token)"
   id="$(echo "$created" | jq -r .credential_id)"
   audience="$(echo "$created" | jq -r .audience)"
@@ -483,6 +546,27 @@ cmd_demo() {
   echo "闭环成立。"
 }
 
+cmd_restart() {
+  local do_build=0 comps=()
+  local arg
+  for arg in ${@+"$@"}; do
+    if [[ "${arg}" == "--no-build" ]]; then
+      do_build=1
+    else
+      comps+=("${arg}")
+    fi
+  done
+
+  local start_args
+  start_args=(${comps[@]+"${comps[@]}"})
+  if [[ "${do_build}" == "1" ]]; then
+    start_args+=(--no-build)
+  fi
+
+  cmd_stop ${comps[@]+"${comps[@]}"}
+  cmd_start ${start_args[@]+"${start_args[@]}"}
+}
+
 # ── 入口 ────────────────────────────────────────────────────────────────────
 
 cmd="${1:-}"
@@ -491,27 +575,13 @@ shift || true
 case "${cmd}" in
   start) cmd_start "$@" ;;
   stop) cmd_stop "$@" ;;
-  restart)
-    local do_build=0 comps=()
-    for arg in ${@+"$@"}; do
-      if [[ "${arg}" == "--no-build" ]]; then
-        do_build=1
-      else
-        comps+=("${arg}")
-      fi
-    done
-    cmd_stop ${comps[@]+"${comps[@]}"}
-    local start_args=(${comps[@]+"${comps[@]}"})
-    if [[ "${do_build}" == "1" ]]; then
-      start_args+=(--no-build)
-    fi
-    cmd_start ${start_args[@]+"${start_args[@]}"}
-    ;;
+  restart) cmd_restart "$@" ;;
   status) cmd_status ;;
   logs) cmd_logs "$@" ;;
   token) cmd_token "$@" ;;
   verify) cmd_verify "$@" ;;
   demo) cmd_demo ;;
+  onboard) cmd_onboard "$@" ;;
   "" | -h | --help | help) usage ;;
   *) die "未知子命令：${cmd}（用 --help 看用法）" ;;
 esac

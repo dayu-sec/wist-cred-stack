@@ -42,4 +42,22 @@ server {
         # 操作者头：**只发这里 set 的值**，客户端带来的同名头一律不转发。
         proxy_set_header   x-wist-operator   $remote_user;
     }
+
+    # 一次性接入脚本 + 登记：**取/交它们的是验证方 X（机器），不是人**，所以没有 basic auth。
+    # 授权依据是 URL 里那张一次性券（分钟级 TTL；取脚本可重取，登记时兑现即废），
+    # 再加上 cred 侧的 peer IP 白名单（这条跳仍然只可能来自本 nginx）。
+    # 这也意味着：X 必须能访问到本 entry（一次性，之后全靠 mTLS 直连）。
+    location /onboarding/ {
+        auth_basic off;
+
+        proxy_pass         http://{{cred_ip}}:8443;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        # 脚本里有私钥：不让任何中间层缓存。
+        proxy_no_cache     1;
+        add_header         Cache-Control "no-store" always;
+    }
 }
