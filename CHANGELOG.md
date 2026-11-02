@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.1-alpha] - 2026-11-03
+
+### 变更
+
+- 默认镜像 tag 跟进到 `v0.1.1-alpha`（两个组件都发了这一版）。
+- **镜像源是现场值，不是产品默认**：产品默认仍是 `ghcr.io/dayu-sec`；国内部署在
+  `values/sys_value.yml` 里写 `CRED_REGISTRY: dy-sec.tencentcloudcr.com/cloud`，
+  `gops sys localize` 即生效（与 gateway-stack 同一套口径）。镜像与 tag 由两个组件仓的
+  release 流水线产出，本栈只负责编排。
+
 ## [0.1.0-alpha] - 2026-11-03
 
 首个可部署栈：`wist-cred`（凭据服务）+ `wist-cred-web`（管理页面）一套编排，
