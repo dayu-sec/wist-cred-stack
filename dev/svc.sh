@@ -157,6 +157,8 @@ digest = "sha256"
 max_ttl_seconds = 2592000
 break_glass_max_ttl_seconds = 7776000
 overlap_seconds = 300
+# 授权记录签名钥（Ed25519）：没有它也能签发，但验证方开了 require_signature 会拒收。
+signing_key = "${PKI_DIR}/signing.key"
 
 [push]
 client_cert = "${PKI_DIR}/cred-client.crt"
@@ -358,14 +360,22 @@ start_peer() {
 
   mkdir -p "${PEER_DIR}"
   note "启动 peer：${PEER_BIN}"
-  nohup "${PEER_BIN}" \
-    --listen "127.0.0.1:${PEER_PORT}" \
-    --dir "${PEER_DIR}/install" \
-    --store "${PEER_STORE}" \
-    --audience "${PEER_NAME}" \
-    --issuer wist-cred \
-    --known-roles "${PEER_ROLES}" \
-    --verify-endpoint >"${PEER_LOG}" 2>&1 &
+  local peer_args=(
+    --listen "127.0.0.1:${PEER_PORT}"
+    --dir "${PEER_DIR}/install"
+    --store "${PEER_STORE}"
+    --audience "${PEER_NAME}"
+    --issuer wist-cred
+    --known-roles "${PEER_ROLES}"
+    --verify-endpoint
+  )
+  # 接入脚本会落下 `issuer-signing.pub`；有它就开验签（旧接入包没有，先不卡）。
+  if [[ -f "${PEER_DIR}/install/issuer-signing.pub" ]]; then
+    peer_args+=(--issuer-public-key-file "${PEER_DIR}/install/issuer-signing.pub")
+  else
+    note "未找到 issuer-signing.pub：peer 不验授权记录签名（重跑接入命令可补）"
+  fi
+  nohup "${PEER_BIN}" "${peer_args[@]}" >"${PEER_LOG}" 2>&1 &
   echo $! >"${PEER_PID_FILE}"
 
   for i in $(seq 1 50); do

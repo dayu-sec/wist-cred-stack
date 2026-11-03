@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0-alpha] - 2026-11-03
+
+### 新增：授权记录签名（跟版 cred 0.4.0）
+
+- `CRED_IMAGE_TAG` → **`v0.4.0-alpha`**（旧版 `[issue]` 是 `deny_unknown_fields`，不跟版起不来）。
+- `scripts/gen-pki.sh` 首次运行额外生成 `identity/cred/signing.key`（Ed25519）与公开的
+  `signing.pub`（裸 32 字节 hex）；已存在不重签。
+- `scripts/init-cred.sh` 在私钥存在但公钥缺失时补派生 `signing.pub`（demo peer 依赖它）。
+- `sys/configs/cred/wist-cred.toml.tpl` 新增 `[issue].signing_key`：cred 对每条授权记录签名。
+- 接入脚本同时下发 `issuer-signing.pub`；验证方的 `require_signature` 就是用它验。
+
+### 升级注意
+
+- **验证方要先升**（`wist-cred-peer 0.2`，先保持 `require_signature = false`），再升本栈，
+  最后在验证方打开验签。
+- 已接入的验证方需要重跑一次接入命令，补下 `issuer-signing.pub`。
+
 ## [0.3.3-alpha] - 2026-11-03
 
 ### 修复：新站点首次部署的引导路径

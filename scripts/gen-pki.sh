@@ -120,6 +120,28 @@ else
 fi
 chmod 644 "${IDENTITY_DIR}/ca-s.crt" "${IDENTITY_DIR}/ca-i.crt"
 
+# ── 授权记录的签名钥（Ed25519；存在就不动）───────────────────────────────
+#
+# 它和上面两把 CA **不是一回事**：CA 负责“谁是谁”（mTLS），这把钥负责
+# “这条授权记录确实是 cred 发的”（篡改检测）。私钥只在 cred 侧。
+# 公钥（裸 32 字节 hex）作为公开材料给验证方，由接入脚本下发。
+if [[ -f "${IDENTITY_DIR}/signing.key" ]]; then
+  note "授权签名钥已存在，跳过"
+else
+  if ! openssl genpkey -algorithm ed25519 -out "${IDENTITY_DIR}/signing.key" >/dev/null 2>&1; then
+    echo "错误：当前 openssl 不支持 Ed25519（需要 OpenSSL 3.x）" >&2
+    exit 1
+  fi
+  chmod 600 "${IDENTITY_DIR}/signing.key"
+  note "已生成授权签名钥（Ed25519）"
+fi
+# 公开公钥：裸 32 字节的 hex（验证方与运维都读这个格式）。
+if [[ -f "${IDENTITY_DIR}/signing.key" ]]; then
+  openssl pkey -in "${IDENTITY_DIR}/signing.key" -pubout -outform DER 2>/dev/null \
+    | tail -c 32 | od -An -tx1 | tr -d ' \n' >"${IDENTITY_DIR}/signing.pub"
+  chmod 644 "${IDENTITY_DIR}/signing.pub"
+fi
+
 # ── cred 的客户端证书（CA-I 签；存在就不动）────────────────────────────────
 if [[ -f "${IDENTITY_DIR}/cred-client.crt" && -f "${IDENTITY_DIR}/cred-client.key" ]]; then
   note "cred 客户端证书已存在，跳过"
@@ -216,6 +238,8 @@ if [[ -n "${DEMO_PEER}" ]]; then
   # **复制进同一个目录**而不是在 compose 里挂第二个文件：`/certs` 已经是只读挂载，
   # 往只读目录里再 bind 一个文件时 Docker 建不了挂载点（`read-only file system`）。
   install -m 644 "${IDENTITY_DIR}/ca-i.crt" "${demo_dir}/client-ca.pem"
+  # 授权记录签名公钥：demo peer 用它验签（`--issuer-public-key-file`）。
+  install -m 644 "${IDENTITY_DIR}/signing.pub" "${demo_dir}/issuer-signing.pub"
 
   # 角色 → JSON 字符串数组（与接入脚本里那段同一写法）。
   demo_roles="${CRED_DEMO_PEER_ROLES:-read,investigation:run}"

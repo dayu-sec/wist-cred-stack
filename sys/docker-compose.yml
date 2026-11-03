@@ -107,6 +107,8 @@ services:
       - wist-cred
       - --known-roles
       - ${CRED_DEMO_PEER_ROLES}
+      - --issuer-public-key-file
+      - /certs/issuer-signing.pub
       - --verify-endpoint
     volumes:
       # 宿主签好的服务器证书 + 本机私钥 + cred 的客户端信任锚（`client-ca.pem`，由

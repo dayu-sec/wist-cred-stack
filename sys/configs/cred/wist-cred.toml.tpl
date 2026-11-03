@@ -33,6 +33,9 @@ digest = "sha256"
 max_ttl_seconds = {{max_ttl_seconds}}
 break_glass_max_ttl_seconds = {{break_glass_max_ttl_seconds}}
 overlap_seconds = {{overlap_seconds}}
+# 授权记录的签发钥（Ed25519）：由 scripts/gen-pki.sh 生成在 identity/cred/signing.key。
+# 它签的是“角色 / 有效期 / 撤销状态”这些授权内容；X 收到时和从磁盘加载时都验。
+signing_key = "/wist-cred/identity/signing.key"
 
 # ── 推送到认证系统：**一套身份，所有认证系统共用** ────────────────────────
 # 两个方向不是同一把 CA：client_* 由 CA-I 签（证明"我是 cred"），

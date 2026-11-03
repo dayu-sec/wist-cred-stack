@@ -77,6 +77,27 @@ mkdir -p "${CONFIG_DIR}" "${CONFIG_DIR}/state" "${WEB_CONFIG_DIR}" "${IDENTITY_D
 # ① 入口站点身份（缺失才生成）
 "${SCRIPT_DIR}/ensure-cred-server-cert.sh" "${IDENTITY_DIR}" "${DOMAIN}"
 
+# ①b 授权记录的签名钥（Ed25519；缺失才生成）
+#
+# 与两把 CA 不是一回事：CA 管“谁是谁”（mTLS），这把钥管“这条授权记录确实是 cred 发的”。
+# 公钥由接入脚本下发给验证方；私钥永远只在 cred 侧。
+# 新生成的现场要重新生成一次接入命令，让验证方把 `issuer-signing.pub` 补下来。
+if [[ ! -f "${IDENTITY_DIR}/signing.key" ]]; then
+  if ! openssl genpkey -algorithm ed25519 -out "${IDENTITY_DIR}/signing.key" >/dev/null 2>&1; then
+    echo "错误：当前 openssl 不支持 Ed25519（需要 OpenSSL 3.x）" >&2
+    exit 1
+  fi
+  chmod 600 "${IDENTITY_DIR}/signing.key"
+  note "已生成授权签名钥：${IDENTITY_DIR}/signing.key（验证方需重新接入以获取公钥）"
+fi
+# 公开公钥（裸 32 字节 hex）：demo peer / 运维都用它；与 pri.key 成对存在。
+if [[ -f "${IDENTITY_DIR}/signing.key" && ! -f "${IDENTITY_DIR}/signing.pub" ]]; then
+  openssl pkey -in "${IDENTITY_DIR}/signing.key" -pubout -outform DER 2>/dev/null \
+    | tail -c 32 | od -An -tx1 | tr -d ' \n' >"${IDENTITY_DIR}/signing.pub"
+  chmod 644 "${IDENTITY_DIR}/signing.pub"
+  note "已派生签名公钥：${IDENTITY_DIR}/signing.pub"
+fi
+
 # ② cred 配置的渲染值
 write_json "${CONFIG_DIR}/wist-cred.value.json" cat <<EOF
 {
