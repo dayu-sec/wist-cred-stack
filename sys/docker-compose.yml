@@ -21,7 +21,7 @@ services:
   # ── 凭据服务（C）──
   cred:
     container_name: wist-cred-stack-cred
-    image: ${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}
+    image: ${WIST_SPC}/wist-cred:${CRED_IMAGE_TAG}
     # 与 center 同口径：运行身份 999:999，宿主侧由 `gops sys perms` 对齐 state 目录。
     user: "999:999"
     restart: unless-stopped
@@ -75,7 +75,7 @@ services:
   # 挂到 /etc/nginx/conf.d/default.conf。容器内 443 上跑 HTTPS。
   web:
     container_name: wist-cred-stack-web
-    image: ${CRED_REGISTRY}/wist-cred-web:${CRED_WEB_IMAGE_TAG}
+    image: ${WIST_SPC}/wist-cred-web:${CRED_WEB_IMAGE_TAG}
     restart: unless-stopped
     environment:
       TZ: ":/etc/tz-runtime/localtime"
@@ -105,7 +105,7 @@ services:
     # 示例验证方：**自己的镜像**，由 `wist-cred` 仓的 release 流水线一起产出
     # （同一个包、`-example` 后缀的 tag）。生态惯例：一个镜像一个二进制；
     # stack 只引 tag、**不构建镜像**，现场也不需要 Rust 工具链。
-    image: ${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}-example
+    image: ${WIST_SPC}/wist-cred:${CRED_IMAGE_TAG}-example
     restart: unless-stopped
     environment:
       TZ: ":/etc/tz-runtime/localtime"

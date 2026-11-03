@@ -136,7 +136,7 @@ docker compose --project-directory . -f sys/docker-compose.yml --profile demo bu
 | 容器（部署态） | `wist-cred:<tag>-example` 镜像（与 cred 同一次 release 产出），`COMPOSE_PROFILES=demo` 拉起 |
 | 本机（开发态） | `cargo run --example peer_example`（在 `wist-cred` 源码目录） |
 
-本栈**不构建镜像**：`peer-demo` 只引用 `${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}-example` ——
+本栈**不构建镜像**：`peer-demo` 只引用 `${WIST_SPC}/wist-cred:${CRED_IMAGE_TAG}-example` ——
 现场不需要 Rust 工具链，也不需要拉 docker.io 的基础镜像。
 
 ```sh
@@ -200,3 +200,15 @@ dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 
 ## 变量
 
 全部在 `sys/setting/vars.yml`（产品默认值）；现场覆盖写 ops-prj 的 `values/wist-cred-stack/sys_value.yml`。
+
+镜像源前缀叫 **`WIST_SPC`**（与 `wist-gateway-stack` 同名同义），值含命名空间：
+
+```yaml
+# 境外（默认）
+WIST_SPC: ghcr.io/dayu-sec
+# 国内走腾讯云 TCR
+WIST_SPC: dy-sec.tencentcloudcr.com/cloud
+```
+
+> 旧名 `CRED_REGISTRY` 已废弃：gops 对 values 里的未知键是**静默接受**的，留着旧键只会让镜像
+> 悄悄退回默认源。`scripts/init-cred.sh` 在 localize 时会直接失败并点名要改哪个键。

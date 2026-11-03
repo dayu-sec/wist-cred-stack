@@ -1,5 +1,5 @@
 system:
-- name: CRED_REGISTRY
+- name: WIST_SPC
   value: ghcr.io/dayu-sec
 - name: CRED_IMAGE_TAG
   value: v0.4.4-alpha

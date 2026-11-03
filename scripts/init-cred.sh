@@ -31,6 +31,16 @@ if [[ -z "${DOMAIN}" ]]; then
   exit 2
 fi
 
+# ── 改名守卫：CRED_REGISTRY → WIST_SPC（与 wist-gateway-stack 对齐）──
+# gops 对 values 里的**未知键是静默接受的**：旧键留着不会报错，镜像源会默默退回默认值
+# （现场表现：以为在拉 TCR，实际拉的是 ghcr）。改名那一刻就该让人看见。
+if [[ -n "${CRED_REGISTRY:-}" ]]; then
+  echo "错误：变量 CRED_REGISTRY 已改名为 WIST_SPC（与 wist-gateway-stack 同名同义）。" >&2
+  echo "     处置：把 values/<系统名>/sys_value.yml 里的 CRED_REGISTRY 改成 WIST_SPC" >&2
+  echo "           （值不变，例如 WIST_SPC: ${CRED_REGISTRY}），再重跑 gops sys localize。" >&2
+  exit 2
+fi
+
 CRED_IP="${CRED_IP:-172.28.90.10}"
 WEB_IP="${WEB_IP:-172.28.90.11}"
 

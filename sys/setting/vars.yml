@@ -13,9 +13,10 @@
 #     配置模板里只写 `${SEC_CRED_WEB_PASSWORD}` 占位，cred 加载时自己展开并只留 sha256。
 #     签发的 token 明文只在创建响应出现一次，库里只有 sha256 摘要（它不在本栈的文件里）。
 system:
-  # 镜像源前缀：国内走腾讯云 TCR，境外用 ghcr.io/dayu-sec
+  # 镜像源前缀（含命名空间）：国内走腾讯云 TCR，境外用 ghcr.io/dayu-sec。
+  # 与 `wist-gateway-stack` 同名同义（那边叫 `WIST_SPC`，wist 系列镜像共用一个源）。
   # 产品默认是 ghcr；**现场值写 ops-prj 的 values/<系统名>/sys_value.yml**，不要改这里。
-  - name: CRED_REGISTRY
+  - name: WIST_SPC
     value: ghcr.io/dayu-sec
   - name: CRED_IMAGE_TAG
     value: v0.4.4-alpha

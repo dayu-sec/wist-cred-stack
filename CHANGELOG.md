@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.7-alpha] - 2026-11-03
+
+### 变更：镜像源变量改名 `CRED_REGISTRY` → `WIST_SPC`
+
+与 `wist-gateway-stack` **同名同义**：wist 系列镜像共用一个源前缀（值含命名空间）。
+
+```yaml
+WIST_SPC: ghcr.io/dayu-sec                    # 境外（默认）
+WIST_SPC: dy-sec.tencentcloudcr.com/cloud     # 国内 TCR
+```
+
+- `sys/docker-compose.yml` 三处镜像引用、`.env.example`、`sys/merged_vars.yml` 一并跟改。
+- **升级注意**：现场如果在自己 `values/<系统名>/sys_value.yml` 里覆盖了旧键，gops 会**静默接受**
+  （旧键不再生效，镜像源默默退回 ghcr）。所以 `scripts/init-cred.sh` 增加了改名守卫：
+  检测到 `CRED_REGISTRY` 仍在环境里就直接失败，并点名要改成 `WIST_SPC`。
+- 新增 `dev/tests/vars-rename-guard.test.sh`（旧键拦住 / 不带旧键通过 / 三个文件里不得再出现旧名）。
+
 ## [0.4.6-alpha] - 2026-11-03
 
 ### 变更：跟版 cred 0.4.4（修正接入提示的语法）
