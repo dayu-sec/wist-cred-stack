@@ -41,6 +41,11 @@ services:
       # CA-S 私钥：cred 是签发方（按 X 的 CSR 签它们的服务器证书），
       # 所以它必须能用到私钥——与 center 持 CA-G 私钥同构。只读、0600。
       - ./identity/cred/ca-s.key:/wist-cred/identity/ca-s.key:ro
+      # 授权记录的签发私钥（Ed25519）：推送 `register` / `revoke` 时签名，
+      # 验证方用公开的 `signing.pub`（随接入包下发）验。只读、0600，与 CA-S 私钥同档。
+      # 缺这个文件 cred 会拒启（`0.4` 起 `[issue].signing_key` 是硬依赖）——
+      # 所以**升级后先 `gops sys localize`**，它会把 `signing.key` 补出来。
+      - ./identity/cred/signing.key:/wist-cred/identity/signing.key:ro
       # CA-I 的**公开证书**：交给 X 当 client_ca（证明"来的是 cred"）。不含私钥。
       - ./identity/cred/ca-i.crt:/wist-cred/identity/ca-i.crt:ro
       - ./identity/cred/cred-client.crt:/wist-cred/identity/cred-client.crt:ro

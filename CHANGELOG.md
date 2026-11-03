@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.2-alpha] - 2026-11-03
+
+### 修复：cred 容器起不来（`signing.key` 没挂）
+
+- `0.4.0` 起 `[issue].signing_key` 是硬依赖，模板里写的是 `/wist-cred/identity/signing.key`，
+  但 `sys/docker-compose.yml` **从来没挂过这个文件** —— cred 起来就报
+  `read issue.signing_key /wist-cred/identity/signing.key: No such file or directory` 并重启循环。
+- 补上只读挂载（与 CA-S 私钥同档，`0600`）。
+- 升级提醒：**先 `gops sys localize` 再 `gops run start`** —— `localize` 会把缺的
+  `identity/cred/signing.key` 补出来；直接 start 会让 docker 把不存在的源建成空目录。
+
 ## [0.4.1-alpha] - 2026-11-03
 
 ### 变更：接入面路径改名，入口白名单跟版
