@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.1-alpha] - 2026-11-03
+
+### 新增：本仓有了发布流水线（部署包 + GitHub Release）
+
+以前只有 tag，没有制品 —— 对照 `wist-ingest-stack` 的 `release.yml` 补齐：
+
+- **verify**：`docker compose --env-file .env.example config`（新增入库的 `.env.example`，
+  用产品默认值）+ `./dev/lint.sh` + `dev/tests/*.test.sh`。
+- **package**：`git archive` 出 `wist-cred-stack-<tag>.tar.gz`（只含 git 跟踪内容，无 --prefix）。
+- **release**：发 GitHub Release（`generate_release_notes`）；配了 `COS_BUCKET` 时同步 JSON 到 COS。
+- 新增 `dev/lint.sh`：与 `wist-gateway-stack` 同一条口径（`-S warning` + `SC2006` 两道）。
+  顺手修了 `dev/check-peer-health.sh` 里一处 unicode 引号（SC1111）。
+
+### 文档
+
+- README：「阶段与边界」里两条过时描述（推送“未实现”、本服务“不持密钥”）按现状改写；
+  新增「发布」一节（tag → verify/package/release）。
+
 ## [0.3.0-alpha] - 2026-11-03
 
 ### 组件跟版

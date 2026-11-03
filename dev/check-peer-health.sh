@@ -36,7 +36,7 @@ if [[ "$code" != "201" ]]; then
   echo "  （已存在，继续）"
 fi
 
-echo "── ② 生成接入命令并在“X”上执行 ────────────────────────────"
+echo "── ② 生成接入命令并在 'X' 上执行 ────────────────────────────"
 path=$(curl -fsS -X POST "$BASE/api/v1/onboarding/peers/$PEER/script" -H "$OP" \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')
 curl -fsSL "$BASE$path" -o "$WORK/join.sh"

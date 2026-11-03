@@ -175,9 +175,20 @@ dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 
 | 项 | 状态 |
 |---|---|
 | 入口认证 | 在**产品里**：页面登录框（`wist-cred-web`）→ 口令带在 `Authorization: Bearer` 上 → `wist-cred` 自己验（`mode = "token"`，配置只存 sha256）。nginx 只做 TLS / 静态 / 反代；将来接用户中心 / 钉钉只换 cred 的认证分支（`mode = "oidc"`），页面不动 |
-| 签发 → 验证方推送 | **P3，未实现**。当前是 P2：人工分发登记表（凭据表可直接作为 X 侧种子） |
+| 签发 → 验证方推送 | **已实现**：签发后按认证系统的收数地址推送摘要（mTLS，双向证书），失败可重推；没配地址的系统退化为手工分发 |
 | 存储 | 单文件 JSON（`configs/cred/state/credentials.db`），无数据库 |
-| 密钥 | **本服务目前不持任何密钥**；P3 推送时才需要 CA-I 客户端证书 |
+| 密钥 | 页面口令只在栈根 `.wist/sec-value.yml`（`cred_web_password`，配置里只展开成 sha256）；推送用的 CA-I 客户端证书在 `identity/cred/`（不进包） |
+
+## 发布
+
+打 `vX.Y.Z-alpha` tag 会触发 `.github/workflows/release.yml`：
+
+1. **verify**：用入库的 `.env.example` 渲染 compose + `./dev/lint.sh` + `dev/tests/*.test.sh`；
+2. **package**：`git archive` 出 `wist-cred-stack-<tag>.tar.gz`（只含 git 跟踪内容）；
+3. **release**：发到 GitHub Release（现场 `gops prj import` / 自升级直接拉）；
+4. **可选 COS**：配了 `COS_BUCKET` 时同步到对象存储。
+
+本栈**不含任何二进制**：`wist-cred` / `wist-cred-web` / 示例验证方的镜像都由各自仓的流水线产出。
 
 ## 变量
 
