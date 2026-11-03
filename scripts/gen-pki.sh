@@ -212,6 +212,11 @@ if [[ -n "${DEMO_PEER}" ]]; then
     note "已签发演示验证方证书（CN/SAN=${DEMO_PEER}，CA-S 签）"
   fi
 
+  # 信任锚：cred 出示的客户端证书由 CA-I 签（peer-example 默认读 `<dir>/client-ca.pem`）。
+  # **复制进同一个目录**而不是在 compose 里挂第二个文件：`/certs` 已经是只读挂载，
+  # 往只读目录里再 bind 一个文件时 Docker 建不了挂载点（`read-only file system`）。
+  install -m 644 "${IDENTITY_DIR}/ca-i.crt" "${demo_dir}/client-ca.pem"
+
   # 角色 → JSON 字符串数组（与接入脚本里那段同一写法）。
   demo_roles="${CRED_DEMO_PEER_ROLES:-read,investigation:run}"
   demo_roles_json="$(printf '%s' "${demo_roles}" | tr ',' '\n' \

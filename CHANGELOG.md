@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0-alpha] - 2026-11-03
+
+### 组件跟版
+
+- `CRED_IMAGE_TAG` → `v0.3.0-alpha`（`CRED_WEB_IMAGE_TAG` 仍是 `v0.2.0-alpha`，前端未变）。
+
+### Changed：示例验证方不再由本栈构建
+
+- `peer-demo` 改成引 **`${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}-example`** ——
+  示例验证方的源码已回到 `wist-cred` 仓（`examples/peer_example.rs`），镜像由那边的
+  release 流水线一起产出。本栈删掉 `dev/peer-example/`、删掉 `build:` / `pull_policy: build`
+  与 `PEER_RUST_IMAGE` / `PEER_RUNTIME_IMAGE` 两个变量。
+- 原因：生态惯例是**一个镜像一个二进制**、**stack 只引 tag 不建镜像**；之前的实作还引入了
+  docker.io 基础镜像、glibc 版本匹配这类与业务无关的故障面。
+- 开发态不受影响：`./dev/svc.sh start peer` 会用 `wist-cred` 源码 `cargo run --example peer_example`。
+
+### 升级注意
+
+- demo peer 需要 `wist-cred` ≥ 0.3.0（那一版才发 `-example` 镜像）。
+- 之前本地 build 过 `wist-cred-peer-example:local` 的机器可以删掉它。
+
 ## [0.2.0-alpha] - 2026-11-03
 
 ### 组件跟版

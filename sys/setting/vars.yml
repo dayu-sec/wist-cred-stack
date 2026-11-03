@@ -18,14 +18,16 @@ system:
   - name: CRED_REGISTRY
     value: ghcr.io/dayu-sec
   - name: CRED_IMAGE_TAG
-    value: v0.2.0-alpha
+    value: v0.3.0-alpha
   - name: CRED_WEB_IMAGE_TAG
     value: v0.2.0-alpha
+  # demo peer 的镜像 tag 是 `CRED_IMAGE_TAG` + `-example`（同一包名），不单列变量。
 
   # ── 演示用验证方（可选）──
   # 两个一起改，缺一个就不会起：
   #   CRED_DEMO_PEER    非空（如 peer-demo）→ localize 阶段给它签证书 + 写种子
   #   COMPOSE_PROFILES  demo             → compose 才把这个服务拉起来
+  # 它用的是 **`wist-cred` 同一个镜像**（镜像里的 `wist-cred-example`），不需要额外构建。
   # 关掉时记得同时删 `identity/cred/onboarding/<name>/`，否则 cred 仍会把它当成一个系统。
   - name: CRED_DEMO_PEER
     value: ''

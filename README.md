@@ -119,14 +119,21 @@ docker compose --project-directory . -f sys/docker-compose.yml --profile demo bu
 ./dev/svc.sh restart cred   # 改了 Rust 代码后重启后端
 ```
 
-### 示例验证方（`dev/peer-example`）
+### 示例验证方（`wist-cred` 仓的 `examples/peer_example.rs`）
 
-一个**独立 crate**，依赖走 crates.io 上已发布的 `wist-cred-peer`（不引本地 path）——
-它就是「一个服务怎么接入 cred」的样板：收 `register`/`revoke`、维护自己的摘要表、
-双向认证、心跳。
+它是「一个服务怎么接入 cred」的样板：收 `register`/`revoke`、维护自己的摘要表、双向认证、心跳。
+依赖走 crates.io 上已发布的 `wist-cred-peer`（不引本地 path），源码跟着 **`wist-cred`** 走：
+
+| 形态 | 怎么来 |
+|---|---|
+| 容器（部署态） | `wist-cred:<tag>-example` 镜像（与 cred 同一次 release 产出），`COMPOSE_PROFILES=demo` 拉起 |
+| 本机（开发态） | `cargo run --example peer_example`（在 `wist-cred` 源码目录） |
+
+本栈**不构建镜像**：`peer-demo` 只引用 `${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}-example` ——
+现场不需要 Rust 工具链，也不需要拉 docker.io 的基础镜像。
 
 ```sh
-./dev/svc.sh start peer     # 建系统 peer-demo → 走一次接入命令拿证书 → 起 mTLS 服务（:19455）
+./dev/svc.sh start peer     # 开发态：建系统 peer-demo → 走一次接入命令拿证书 → 起 mTLS 服务（:19455）
 ./dev/svc.sh peer-check     # 签发 → 推给 peer → 本地验证 → 撤销 → 再验证
 ./dev/svc.sh status         # peer 的可联通状态
 ./dev/svc.sh logs peer -f

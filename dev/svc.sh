@@ -4,7 +4,7 @@
 # 组件（不给 = 默认 cred + web；`all` = 三个都给）：
 #   cred   凭据服务后端（cargo run，默认 http://127.0.0.1:18443）
 #   web    管理页面（vite dev，默认 http://127.0.0.1:5174，/api 反代到 cred 并注入操作者头）
-#   peer   示例验证方（dev/peer-example，用已发布的 wist-cred-peer，https://localhost:19455）
+#   peer   示例验证方（wist-cred 仓 examples/peer_example.rs，用已发布的 wist-cred-peer，https://localhost:19455）
 #
 # 用法：
 #   ./dev/svc.sh start   [组件…] [--no-build]   默认 cred web
@@ -68,9 +68,9 @@ WEB_LOG="${RUN_DIR}/web.log"
 CRED_BIN="${CRED_SRC}/target/debug/wist-cred"
 WEB_BIN="${WEB_SRC}/node_modules/.bin/vite"
 
-# 示例验证方：一个**独立 crate**，依赖走已发布的 wist-cred-peer（不引本地 path）。
-PEER_SRC="${STACK_ROOT}/dev/peer-example"
-PEER_BIN="${PEER_SRC}/target/debug/peer-example"
+# 示例验证方：**跟着 wist-cred 仓走**（`examples/peer_example.rs`，依赖已发布的 wist-cred-peer），
+# 发布时同一个镜像里就有这个二进制（`wist-cred-example`）。dev 态直接 cargo 起。
+PEER_BIN="${CRED_SRC}/target/debug/examples/peer_example"
 PEER_PID_FILE="${RUN_DIR}/peer.pid"
 PEER_LOG="${RUN_DIR}/peer.log"
 PEER_DIR="${RUN_DIR}/peer"
@@ -346,13 +346,13 @@ start_peer() {
 
   require_cmd curl
   cred_healthy || die "cred 没在跑，先 ./dev/svc.sh start cred"
-  [[ -d "${PEER_SRC}" ]] || die "找不到示例：${PEER_SRC}"
+  [[ -d "${CRED_SRC}" ]] || die "找不到 cred 源码：${CRED_SRC}（示例验证方在它的 examples/ 里）"
 
   ensure_demo_peer
 
   if [[ "${do_build}" == "1" ]]; then
-    note "构建 ${PEER_SRC} …"
-    (cd "${PEER_SRC}" && cargo build --quiet)
+    note "构建 ${CRED_SRC} 的示例 peer_example …"
+    (cd "${CRED_SRC}" && cargo build --quiet --example peer_example)
   fi
   [[ -x "${PEER_BIN}" ]] || die "没有二进制：${PEER_BIN}（先不带 --no-build 跑一次）"
 

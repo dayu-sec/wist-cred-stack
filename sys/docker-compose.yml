@@ -89,10 +89,10 @@ services:
   peer-demo:
     container_name: wist-cred-stack-peer-demo
     profiles: ["demo"]
-    build:
-      # 相对**项目目录**（gops 以栈根为 project-directory，与上面的 ./identity 一致）
-      context: ./dev/peer-example
-    image: wist-cred-peer-example:local
+    # 示例验证方：**自己的镜像**，由 `wist-cred` 仓的 release 流水线一起产出
+    # （同一个包、`-example` 后缀的 tag）。生态惯例：一个镜像一个二进制；
+    # stack 只引 tag、**不构建镜像**，现场也不需要 Rust 工具链。
+    image: ${CRED_REGISTRY}/wist-cred:${CRED_IMAGE_TAG}-example
     restart: unless-stopped
     command:
       - --listen
@@ -109,10 +109,10 @@ services:
       - ${CRED_DEMO_PEER_ROLES}
       - --verify-endpoint
     volumes:
-      # 宿主签好的服务器证书 + 本机私钥（只读）
+      # 宿主签好的服务器证书 + 本机私钥 + cred 的客户端信任锚（`client-ca.pem`，由
+      # `scripts/gen-pki.sh` 拷进来）。
+      # **只挂这个目录**：往只读目录里再 bind 一个文件会让容器建不了挂载点。
       - ./identity/demo-peer:/certs:ro
-      # cred 出示的客户端证书由 CA-I 签：它的公开证书就是这里的信任锚
-      - ./identity/cred/ca-i.crt:/certs/client-ca.pem:ro
     depends_on:
       - cred
     networks:
