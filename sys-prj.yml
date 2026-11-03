@@ -11,13 +11,14 @@ perms:
       uid: 999
       gid: 999
 
-# 密钥：入口 basic auth 的口令不从配置/环境里来，而是密钥文件（与 center / gateway 同一口径）。
+# 密钥：页面口令（人机面）不从配置/环境里来，而是密钥文件。
 #
 #   .wist/sec-value.yml（**运维提供**、不入库、0600）
 #     cred_web_password: "..."    # → 归一化为 SEC_CRED_WEB_PASSWORD
 #
-# `scripts/init-cred.sh` 在 localize 时用 `gops sec get` 读它、写成 `configs/web/htpasswd`
-# （只有 apr1 摘要）；换口令 = 改密钥 + `gops sys localize`。
+# 配置模板里写 `admin_password = "${SEC_CRED_WEB_PASSWORD}"`，**由 cred 自己展开并只留 sha256**
+# （与 gateway / center 的管理面同一个做法）；`scripts/init-cred.sh` 在 localize 时只检查它存不存在。
+# 换口令 = 改密钥 + `gops sys localize` + 重启 cred。
 # 声明了就必须存在 —— 缺文件 / 缺键时 localize 直接失败，**不随机生成**（口令不落终端与 CI 日志）。
 secrets:
   file: .wist/sec-value.yml
@@ -42,9 +43,9 @@ protect:
 contract:
   - identity
 
-# 备份选取：渲染出的配置（含凭据表 state/ 与入口 htpasswd 的 apr1 摘要）。
+# 备份选取：渲染出的配置（含凭据表 state/）。
 # ⚠ 凭据表里**只有 sha256 摘要**，没有明文 —— 泄了也不能反推出 token；
 #    但条目本身能看出"给谁发过什么权限"，所以仍然按运维资料对待。
-# `.wist/sec-value.yml` 不进备份：丢了只需重设一个入口口令（htpasswd 随 configs 一起回放）。
+# `.wist/sec-value.yml` 不进备份：丢了只需重设一个页面口令（那个口令只影响人进页面）。
 backup:
   - configs

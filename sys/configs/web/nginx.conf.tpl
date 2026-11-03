@@ -21,31 +21,23 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # 入口认证：**整站**都要，包括首屏 `/`。
-    # 只放在 `/api/` 上会变成：页面先加载出来，第一次 API 调用才弹窗 ——
-    # 用户取消后页面就是一片 401，看着像"没有登录入口"。
-    # 口令来自密钥文件（.wist/sec-value.yml 的 cred_web_password），由 init-cred.sh 算成 apr1。
-    auth_basic           "wist-cred";
-    auth_basic_user_file /etc/nginx/htpasswd;
-
     # 静态资源 + SPA 深链回退：找不到实体文件就交给前端路由。
+    # **这里不做认证**：人机面的口令在页面里输，由 cred 自己验（`mode = token`）。
+    # 入口只负责 TLS / 静态 / 反代 —— “谁能进”是产品的事，不是反代的事。
     location / {
         try_files $uri $uri/ /index.html;
     }
 
     location /api/ {
-        # 认证在上面（server 级）已经做了，这里不再重复声明。
-
         # 明文 HTTP 到 cred（容器内 8443）；cred 不对宿主发布端口。
+        # 凭据（`Authorization: Bearer <页面口令>`）是**页面自己带的**，
+        # 这里原样透传，不注入、不改写 —— 否则“是谁在操作”又变成了反代的结论。
         proxy_pass         http://{{cred_ip}}:8443;
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
-
-        # 操作者头：**只发这里 set 的值**，客户端带来的同名头一律不转发。
-        proxy_set_header   x-wist-operator   $remote_user;
     }
 
     # 一次性接入脚本 + 登记：**取/交它们的是验证方 X（机器），不是人**，所以没有 basic auth。

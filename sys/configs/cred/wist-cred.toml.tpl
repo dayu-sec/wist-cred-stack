@@ -6,15 +6,22 @@
 # 两条与容器强相关的项（设计文档 S1 / S3）：
 #   - `listen_addr` 必须是**容器在专用网段里的私网 IP**，不能是 0.0.0.0 ——
 #     加载期会拒绝绑定 unspecified 地址（同一份代码绑到公网就是后门）；
-#   - `trusted_peers` 只放 web 的地址：cred 的入站靠 peer IP 判定，不做 TLS。
+#   - `trusted_peers` 只放 web 的地址：多一道锁（谁都不该从别的地址直接调 cred）。
+#
+# 人是怎么被验证的（`mode`）：
+#   - `token`（本栈用）：页面里输口令 → 请求带 `Authorization: Bearer <口令>`，
+#     **cred 自己验**（配置里只有口令的 sha256）。口令真值在栈根 `.wist/sec-value.yml`
+#     的 `cred_web_password`，由 `WIST_CRED_SEC_FILE` 指向的文件在**加载时**展开、算完即丢。
+#   - `ingress`：人身份由内网反代注入 `x-wist-operator`（开发态 `dev/svc.sh` 走这条）。
 #
 # 凭据本身**不落密钥**：明文只在创建响应里出现一次，库里只有 sha256 摘要。
 # 认证系统（验证方 X）**不在这份配置里**：它们落在 `state/peers.json`，运行期可增删。
 
 [server]
 listen_addr = "{{cred_ip}}:8443"
-mode = "ingress"
-ingress_header = "x-wist-operator"
+mode = "token"
+# 只写占位符：明文绝不落到这份渲染物里（它会进包、进备份、谁都能 cat）。
+admin_password = "${SEC_CRED_WEB_PASSWORD}"
 trusted_peers = ["{{web_ip}}/32"]
 
 [storage]

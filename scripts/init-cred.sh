@@ -9,16 +9,15 @@
 #   identity/cred/server.{crt,key}         入口 nginx 的站点身份（自签；缺失即生成）
 #   configs/cred/wist-cred.value.json      cred 配置模板的渲染值
 #   configs/web/nginx.value.json           入口 nginx 的渲染值
-#   configs/web/htpasswd                   入口 basic auth（由密钥文件的 cred_web_password 生成）
 #
 # 环境（gops 把合并后的系统变量以环境变量注入）：
 #   CRED_IP / WEB_IP / CRED_MAX_TTL_SECONDS / CRED_BREAK_GLASS_TTL_SECONDS /
 #   CRED_OVERLAP_SECONDS / CRED_ONBOARDING_TTL_SECONDS / CRED_PEER_CERT_TTL_SECONDS /
-#   CRED_HEARTBEAT_SECONDS / WEB_HTPASSWD
+#   CRED_HEARTBEAT_SECONDS
 #
 # 本服务**不持凭据明文**：签发的 token 只在创建响应出现一次，库里只有 sha256 摘要。
-# 本站唯一的口令是入口 basic auth，它**只**来自栈根密钥文件
-# `.wist/sec-value.yml`（`cred_web_password`），脚本不回显、不进配置、不进 .env。
+# 页面口令也不在这里落盘：它只在栈根密钥文件 `.wist/sec-value.yml`（`cred_web_password`），
+# 由 cred 启动时展开成 sha256；本脚本只检查它在不在。
 set -euo pipefail
 
 CONFIG_DIR="${1:-configs/cred}"
@@ -43,7 +42,6 @@ HEARTBEAT="${CRED_HEARTBEAT_SECONDS:-30}"
 # peer 清单不进渲染值：它是 `state/peers.json` 的种子，由 `scripts/gen-pki.sh` 写成
 # `identity/cred/onboarding/<name>/peer.json`，cred 启动时导入一次。
 # 之后新增/修改都走页面（`POST /api/v1/onboarding/peers`），不再改 vars。
-WEB_HTPASSWD="${WEB_HTPASSWD:-configs/web/htpasswd}"
 
 # web 的配置目录固定落栈根，避免脚本从别的工作目录被调用时写错地方。
 WEB_CONFIG_DIR="${STACK_ROOT}/configs/web"
@@ -53,10 +51,6 @@ IDENTITY_DIR="${STACK_ROOT}/identity/cred"
 case "${CONFIG_DIR}" in
   /*) : ;;
   *) CONFIG_DIR="${STACK_ROOT}/${CONFIG_DIR}" ;;
-esac
-case "${WEB_HTPASSWD}" in
-  /*) : ;;
-  *) WEB_HTPASSWD="${STACK_ROOT}/${WEB_HTPASSWD}" ;;
 esac
 
 note() { echo "  $*"; }
@@ -105,14 +99,15 @@ write_json "${WEB_CONFIG_DIR}/nginx.value.json" cat <<EOF
 }
 EOF
 
-# ④ 入口认证（basic auth）
+# ④ 页面口令的存在性检查（**这里不写任何文件**）
 #
-# 口令的**唯一来源**是栈根密钥文件（`sys-prj.yml: secrets.file`）：
+# 人是怎么被验证的：页面里输口令 → 请求带 `Authorization: Bearer <口令>` → **cred 自己验**
+# （`mode = token`，配置里只有 sha256）。口令来源只有一个：
 #
-#   .wist/sec-value.yml   →   cred_web_password: "..."
+#   .wist/sec-value.yml   →   cred_web_password
 #
-# 这里只把它算成 apr1 摘要写进 `configs/web/htpasswd`：口令不进配置、不进 .env、不回显。
-# 换口令 = 改密钥 + 重跑 localize（不需要删 htpasswd）。
+# 为什么这里还要检查一遍：cred 加载时也会因为占位符解不出来而拒启（这是真正的 fail-closed），
+# 但那是 `docker compose up` 之后才看到的。放在 localize 里，早一步、少一轮重启。
 #
 # **缺密钥就让 localize 失败**，不随机生成：脚本一生成，口令就落进终端 / CI 日志，
 # 而且“现场有个没人知道来历的口令”比“起不来”更难查。补密钥的命令见 README「起栈」。
@@ -136,19 +131,10 @@ sec_get() {
   printf '%s' "${out}"
 }
 
-# 同一个口令 + 同一个 salt 算出来的 apr1 是确定的：先比对，没变就不重写文件
-# （重写会改 mtime，触发容器重载入口配置）。
-apr1_matches() {
-  local password="$1" line="$2" salt
-  salt="$(printf '%s' "${line}" | awk -F'\\$' '{print $3}')"
-  [[ -n "${salt}" ]] || return 1
-  [[ "$(openssl passwd -apr1 -salt "${salt}" "${password}")" == "${line#admin:}" ]]
-}
-
 password="$(sec_get cred_web_password)" || exit 1
 if [[ -z "${password}" ]]; then
   cat >&2 <<'MSG'
-错误：入口口令没有来源。
+错误：页面口令没有来源。
 
   .wist/sec-value.yml 里缺 cred_web_password。补上（口令就是下面生成的那串）：
 
@@ -156,26 +142,8 @@ if [[ -z "${password}" ]]; then
     printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
     chmod 600 .wist/sec-value.yml
 
-  然后重跑 gops sys localize（登录：用户名 admin，口令同上）。
+  然后重跑 gops sys localize。这个口令就是打开页面时要输的那个。
 MSG
   exit 1
 fi
-
-current=""
-if [[ -f "${WEB_HTPASSWD}" ]]; then
-  current="$(sed -n 's/^admin://p' "${WEB_HTPASSWD}" | head -n 1)"
-fi
-if [[ -n "${current}" ]] && apr1_matches "${password}" "${current}"; then
-  note "入口口令与密钥文件一致，跳过：${WEB_HTPASSWD}"
-else
-  if ! hash="$(openssl passwd -apr1 "${password}")"; then
-    echo "生成 htpasswd 失败（需要 openssl passwd -apr1）" >&2
-    exit 1
-  fi
-  # 先写临时文件再替换：nginx 可能正读着，不留半截文件。
-  tmp="$(mktemp "${WEB_HTPASSWD}.XXXXXX")"
-  printf 'admin:%s\n' "${hash}" >"${tmp}"
-  chmod 640 "${tmp}"
-  mv -f "${tmp}" "${WEB_HTPASSWD}"
-  note "已按密钥文件写入入口口令（用户名 admin，不回显）：${WEB_HTPASSWD}"
-fi
+note "页面口令已就位（来自密钥文件，不回显）"

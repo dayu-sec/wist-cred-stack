@@ -9,8 +9,8 @@
 #
 # 说明：
 #   - 只有 `system:` 段的变量会进入 resolved_vars.yml 并最终导出到 .env；
-#   - **密钥不走这里**：入口 basic auth 口令在栈根 `.wist/sec-value.yml`（`cred_web_password`），
-#     localize 时由 `scripts/init-cred.sh` 读出来只写 apr1 摘要。
+#   - **密钥不走这里**：页面口令在栈根 `.wist/sec-value.yml`（`cred_web_password`），
+#     配置模板里只写 `${SEC_CRED_WEB_PASSWORD}` 占位，cred 加载时自己展开并只留 sha256。
 #     签发的 token 明文只在创建响应出现一次，库里只有 sha256 摘要（它不在本栈的文件里）。
 system:
   # 镜像源前缀：国内走腾讯云 TCR，境外用 ghcr.io/dayu-sec
@@ -64,9 +64,6 @@ system:
   # 入口 nginx 站点配置（localize 渲染物）
   - name: WEB_NGINX_CONF
     value: ./configs/web/nginx.conf
-  # 入口认证：basic auth 的 htpasswd（由 scripts/init-cred.sh 从密钥文件生成）
-  - name: WEB_HTPASSWD
-    value: ./configs/web/htpasswd
 
   # ── 签发上限 ──
   # ttl_seconds 超过这里的值会被静默压到上限。

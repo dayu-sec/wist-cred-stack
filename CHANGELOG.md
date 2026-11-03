@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **人机面的验证从入口 nginx 收回产品里**：页面有登录框（`wist-cred-web`），口令由
+  `wist-cred` 自己验（`mode = "token"`）。入口 nginx 退回纯 TLS + 静态 + 反代。
+  - `sys/configs/cred/wist-cred.toml.tpl`：`mode = "token"`，
+    `admin_password = "${SEC_CRED_WEB_PASSWORD}"`（渲染物里永远只有占位符）；
+    保留 `trusted_peers`（web 地址）当第二道锁。
+  - compose：cred 挂 `.wist` 并设 `WIST_CRED_SEC_FILE`；web 删掉 htpasswd 挂载，
+    nginx 不再做 `auth_basic`、不再注入 `x-wist-operator`。
+  - `scripts/init-cred.sh`：不再生成 `configs/web/htpasswd`，改为只**检查**口令有没有来源
+    （早一步报错，而不是等 cred 起不来）。
+  - 变量 `WEB_HTPASSWD` 删除。
+- `dev/svc.sh` 的开发态仍用 `mode = "ingress"`（vite 代理注入操作者头）——
+  开发时不想每次输口令，且那条路本来只在 dev 存在。
+
 ### Added
 
 - **示例验证方** `dev/peer-example/`：一个**独立 crate**，依赖走已发布的 `wist-cred-peer`

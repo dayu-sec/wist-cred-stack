@@ -31,13 +31,13 @@ TLS 在 web 终止。两者在专用网段（默认 `172.28.90.0/24`）里钉死
 #      WEB_DOMAIN: cred.<zone>
 #      WEB_BIND_IP: <内网网卡或 127.0.0.1>
 
-# 2) 入口口令（**运维提供**，只在密钥文件里）
+# 2) 页面口令（**运维提供**，只在密钥文件里）
 mkdir -p .wist && chmod 700 .wist
 printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
 chmod 600 .wist/sec-value.yml
-# → 登录用户名 admin，口令就是上面那串
+# → 打开页面要输的就是上面那串（用户名一概不需要：直接一个口令）
 
-# 3) 变量解析 + 渲染（localize 会跑 scripts/init-cred.sh，用上面的密钥写 htpasswd）
+# 3) 变量解析 + 渲染（localize 会检查口令有没有来源）
 gops sys update
 gops sys localize
 
@@ -50,43 +50,35 @@ gops run start
 | 产物 | 说明 |
 |---|---|
 | `identity/cred/server.{crt,key}` | 入口 nginx 的站点身份（自签；换正式证书直接覆盖文件） |
-| `configs/cred/wist-cred.toml` | cred 运行配置（由 `sys/configs/cred/wist-cred.toml.tpl` 渲染） |
-| `configs/web/nginx.conf` | 入口配置（由 `sys/configs/web/nginx.conf.tpl` 渲染） |
-| `configs/web/htpasswd` | 入口 basic auth 的 apr1 摘要，**由密钥文件推导**（不含明文） |
+| `configs/cred/wist-cred.toml` | cred 运行配置（由 `sys/configs/cred/wist-cred.toml.tpl` 渲染；口令位只写占位符） |
+| `configs/web/nginx.conf` | 入口配置（由 `sys/configs/web/nginx.conf.tpl` 渲染；**不做认证**） |
 
-### 入口口令：只存 `.wist/sec-value.yml`
+### 人怎么进页面：登录框 + 口令由 cred 自己验
 
-与服务端签发的 token 无关 —— 它管的是**谁能打开这个页面**（阶段一的人身份）。
-口径与 `wist-center-stack` / `wist-gateway-stack` 一致：
+与服务端签发的 token 无关 —— 它管的是**谁能打开这个页面**，不是“程序拿什么调 API”。
 
 ```text
 .wist/sec-value.yml          # 0600、不入库、不进交付包（sys-prj.yml 的 ignore/protect）
   cred_web_password: "..."   # → SEC_CRED_WEB_PASSWORD
-        │
-        └─ gops sys localize ─→ scripts/init-cred.sh ─→ configs/web/htpasswd（apr1）
+         │                              │
+         │                              └─ cred 启动时展开 → sha256（明文当场丢掉）
+         └─ gops sys localize 只检查它在不在（不写任何文件）
+
+浏览器：打开页面 → 登录框输口令 → 存本标签页 → 请求带 Authorization: Bearer <口令>
 ```
 
-- **换口令**：只改密钥文件 + `gops sys localize`（不需要删 htpasswd；内容没变就不重写）；
-- **缺密钥 = 起不来**：localize 直接失败并打印补密钥的命令 —— 不随机生成、不打印口令
-  （生成的瞬间就进了终端 / CI 日志）；
-- 口令不进 `sys/setting/vars.yml`、不进 `.env`、不进渲染值。
+- **验证在产品里**：`wist-cred` 的 `mode = "token"` 自己比对；入口 nginx 只做 TLS / 静态 / 反代，
+  不写身份、不注入头 —— 权限处理不在反代那一层；
+- **口令怎么查 / 怎么换**：`gops sec get --show cred_web_password`；换口令 = 改密钥 +
+  `gops sys localize` + 重启 cred（配置里只有摘要，重算很快）；
+- **缺密钥 = 起不来**：localize 失败并打印补密钥的命令；就算漏过去，cred 加载时会因占位符
+  解不出来拒启 —— 不会静默成“空口令也能进”；
+- **机器 / 排查用 curl**：`curl -H "Authorization: Bearer $(gops sec get --show cred_web_password)" ...`；
+- **`/onboarding/`（取接入脚本、登记）本来就不要口令**：拿它的是机器，
+  授权靠 URL 里那张一次性券 + peer IP 白名单。
 
-#### 怎么“输入”这个口令
-
-本栈的入口认证是 **HTTP Basic**，用户名固定 `admin` —— 没有登录页、没有 token 输入框（D17：
-不建本机用户表，将来接用户中心 / 钉钉 OIDC 时换入口这一层）。所以“输入”只有两个地方：
-
-| 调用方 | 怎么带 |
-|---|---|
-| 浏览器（人） | 打开 `https://<域名>/` 就弹系统认证框，用户名 `admin`。**首屏之前**就验（`auth_basic` 在 server 级），不是等页面加载完再 401 |
-| 脚本 / curl（机器或排查） | `curl -u "admin:$(gops sec get --show cred_web_password)" https://<域名>/api/v1/credentials` |
-
-两条边界：
-
-- `/onboarding/`（取接入脚本、登记）**故意不要 basic auth** —— 拿它的是机器，授权靠 URL 里那张
-  一次性券 + cred 侧的 peer IP 白名单；
-- basic auth 没有“登出”：换人要么关浏览器，要么用无痕窗口。真要做注销/审计到人，
-  等 D17 的 OIDC 那一步。
+> 开发态（`./dev/svc.sh`）用的仍是 `mode = "ingress"`（vite 代理注入操作者头）——
+> 开发时不想每次输口令；发布态一律 `token`。
 
 ### 演示用的验证方（可选）
 

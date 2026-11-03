@@ -26,6 +26,9 @@ services:
     restart: unless-stopped
     environment:
       WIST_CRED_CONFIG: /wist-cred/wist-cred.toml
+      # 页面口令的来源：配置里写的是 `${SEC_CRED_WEB_PASSWORD}`，
+      # 由 cred 加载时从这个密钥文件展开（与网关同一个做法），算成 sha256 后就丢掉明文。
+      WIST_CRED_SEC_FILE: /secrets/sec-value.yml
     volumes:
       # 运行配置：只有这一个文件挂在 /wist-cred，避免整目录可写。
       - ${CRED_CONFIG_DIR}/wist-cred.toml:/wist-cred/wist-cred.toml:ro
@@ -44,12 +47,18 @@ services:
       # 部署态种子（每个 X 一个 `peer.json`，只读）。
       # 注册表本体在 ${CRED_CONFIG_DIR}/state/peers.json（可写）。
       - ./identity/cred/onboarding:/wist-cred/identity/onboarding:ro
+      # 密钥文件（只读）：只有 `[server].admin_password` 的占位符向它要值。
+      # 挂**目录**而非文件：源缺失时 Docker 只会建出 `.wist/` 目录，而不是把文件名建成目录。
+      - ./.wist:/secrets:ro
     # **故意没有 ports**：只有 web 能到它。
     networks:
       crednet:
         ipv4_address: ${CRED_IP}
 
-  # ── 入口（nginx：终止 TLS + 静态 + /api 反代 + 注入操作者头）──
+  # ── 入口（nginx：终止 TLS + 静态 + /api 反代）──
+  #
+  # 它**不做认证**：页面口令由页面自己输、由 cred 自己验（`mode = token`）。
+  # nginx 只负责 TLS、静态产物与反代——权限处理不在这一层。
   #
   # 镜像内不含站点配置：由 sys/configs/web/nginx.conf.tpl 渲染出 configs/web/nginx.conf，
   # 挂到 /etc/nginx/conf.d/default.conf。容器内 443 上跑 HTTPS。
@@ -61,7 +70,6 @@ services:
       - ${WEB_NGINX_CONF}:/etc/nginx/conf.d/default.conf:ro
       - ./identity/cred/server.crt:/certs/server.crt:ro
       - ./identity/cred/server.key:/certs/server.key:ro
-      - ${WEB_HTPASSWD}:/etc/nginx/htpasswd:ro
     ports:
       - "${WEB_BIND_IP}:${WEB_HOST_PORT}:443"
     depends_on:

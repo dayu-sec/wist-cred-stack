@@ -27,8 +27,6 @@ system:
   value: ./configs/cred
 - name: WEB_NGINX_CONF
   value: ./configs/web/nginx.conf
-- name: WEB_HTPASSWD
-  value: ./configs/web/htpasswd
 - name: CRED_MAX_TTL_SECONDS
   value: '2592000'
 - name: CRED_BREAK_GLASS_TTL_SECONDS
