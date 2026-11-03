@@ -17,6 +17,13 @@
 - `dev/svc.sh` 的开发态仍用 `mode = "ingress"`（vite 代理注入操作者头）——
   开发时不想每次输口令，且那条路本来只在 dev 存在。
 
+### 升级注意
+
+- **必须与组件一起发版**：`wist-cred` 需要带 `token` 模式的那一版（旧版会因不认识的
+  `admin_password` 键**拒启**）；`wist-cred-web` 需要带登录框的那一版（旧版不会带
+  `Authorization`，只会看到 401）。三个 tag 一起推。
+- 口令先在 `.wist/sec-value.yml` 里放好（`cred_web_password`），否则 localize 当场失败。
+
 ### Added
 
 - **示例验证方** `dev/peer-example/`：一个**独立 crate**，依赖走已发布的 `wist-cred-peer`
