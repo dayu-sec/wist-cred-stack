@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0-alpha] - 2026-11-03
+
+### 组件跟版
+
+- `CRED_IMAGE_TAG` / `CRED_WEB_IMAGE_TAG` → `v0.2.0-alpha`（两个组件同版发布）。
 
 ### Changed
 
@@ -23,6 +27,8 @@
   `admin_password` 键**拒启**）；`wist-cred-web` 需要带登录框的那一版（旧版不会带
   `Authorization`，只会看到 401）。三个 tag 一起推。
 - 口令先在 `.wist/sec-value.yml` 里放好（`cred_web_password`），否则 localize 当场失败。
+- 升级后第一次打开页面会**先看到登录框**（口令 = `gops sec get --show cred_web_password`），
+  不再有浏览器 basic auth 弹窗。
 
 ### Added
 

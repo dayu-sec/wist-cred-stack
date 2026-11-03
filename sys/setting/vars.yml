@@ -18,9 +18,9 @@ system:
   - name: CRED_REGISTRY
     value: ghcr.io/dayu-sec
   - name: CRED_IMAGE_TAG
-    value: v0.1.1-alpha
+    value: v0.2.0-alpha
   - name: CRED_WEB_IMAGE_TAG
-    value: v0.1.1-alpha
+    value: v0.2.0-alpha
 
   # ── 演示用验证方（可选）──
   # 两个一起改，缺一个就不会起：
