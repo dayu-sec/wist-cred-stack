@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.5-alpha] - 2026-11-03
+
+### 变更：跟版 cred 0.4.3 / cred-web 0.2.3
+
+- `CRED_IMAGE_TAG` → **`v0.4.3-alpha`**，`CRED_WEB_IMAGE_TAG` → **`v0.2.3-alpha`**。
+- 接入脚本可自带 `--config` / `--restart`：落点存在认证系统上（页面「接入命令」面板里填），
+  签发时烘进脚本。**栈部署的服务（center / ingest）仍不要填** —— 它们的配置由本栈模板渲染。
+
 ## [0.4.4-alpha] - 2026-11-03
 
 ### 变更：把「写死的值」变成变量（对齐 `wist-gateway-stack` 的取值口径）
