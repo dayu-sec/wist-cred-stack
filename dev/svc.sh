@@ -313,7 +313,7 @@ peer_healthy() {
 # 在 cred 里建好这个演示系统，并用**真实的一次性接入命令**把证书换到本机。
 ensure_demo_peer() {
   local code path sand
-  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE_URL}/api/v1/onboarding/peers" \
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE_URL}/api/v1/peers" \
     -H "x-wist-operator: ${OPERATOR}" -H 'content-type: application/json' \
     -d "{\"name\":\"${PEER_NAME}\",\"host\":\"localhost\"}")"
   [[ "${code}" == "201" || "${code}" == "409" ]] \
@@ -323,16 +323,13 @@ ensure_demo_peer() {
 
   note "为 ${PEER_NAME} 走一次接入命令（本机生成密钥，cred 按 CSR 签）…"
   sand="${RUN_DIR}/peer-sandbox"
-  mkdir -p "${sand}/bin" "${PEER_DIR}/install"
-  # 接入脚本要求 root（写 /etc）；这里把 `id -u` 换成 0，材料落到 PEER_DIR。
-  printf '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\n/usr/bin/id "$@"\n' >"${sand}/bin/id"
-  chmod +x "${sand}/bin/id"
+  mkdir -p "${sand}" "${PEER_DIR}/install"
 
-  path="$(curl -fsS -X POST "${BASE_URL}/api/v1/onboarding/peers/${PEER_NAME}/script" \
+  path="$(curl -fsS -X POST "${BASE_URL}/api/v1/peers/${PEER_NAME}/enrollment-tickets" \
     -H "x-wist-operator: ${OPERATOR}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')"
   curl -fsSL "${BASE_URL}${path}" -o "${sand}/join.sh"
-  PATH="${sand}/bin:$PATH" bash "${sand}/join.sh" \
+  bash "${sand}/join.sh" \
     --dir "${PEER_DIR}/install" \
     --host localhost \
     --advertise "${PEER_URL}${PEER_BASE}" \
@@ -523,7 +520,7 @@ cmd_status() {
     if command -v jq >/dev/null 2>&1; then
       echo "  entries: $(curl -fsS "${BASE_URL}/api/v1/credentials" \
         -H "x-wist-operator: ${OPERATOR}" | jq '.credentials | length')"
-      echo "  peers  : $(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" \
+      echo "  peers  : $(curl -fsS "${BASE_URL}/api/v1/peers" \
         -H "x-wist-operator: ${OPERATOR}" | jq -r '[.peers[].name] | join(", ")')"
     fi
   else
@@ -647,7 +644,7 @@ cmd_onboard() {
 
   local peer="${1:-wist-ingest}"
   local minted path ttl
-  minted="$(curl -fsS -X POST "${BASE_URL}/api/v1/onboarding/peers/${peer}/script" \
+  minted="$(curl -fsS -X POST "${BASE_URL}/api/v1/peers/${peer}/enrollment-tickets" \
     -H "x-wist-operator: ${OPERATOR}")" || die "签发接入链接失败（peer 存在吗？）"
   path="$(echo "${minted}" | jq -r .path)"
   ttl="$(echo "${minted}" | jq -r .expires_in)"
@@ -661,7 +658,7 @@ cmd_onboard() {
   echo "  并重启：            ... | bash -s -- --config /etc/x/ctrl.toml --restart 'systemctl restart x-ctrl'"
   echo
   echo "X 在本机生成密钥（永不上送），只交 CSR；证书由 CA-S 按 CSR 签。"
-  echo "材料落点默认 /etc/wist/${peer}（可用 --dir 改）。"
+  echo "材料落点：root 默认 /etc/wist/${peer}，普通用户默认 ./wist-cred/${peer}（可用 --dir 改）。"
 }
 
 cmd_demo() {
@@ -671,10 +668,10 @@ cmd_demo() {
 
   local created token id audience peer roles
   # 受众与角色都从注册表里取：写死的名字在接入别的系统后就失效了。
-  peer="$(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" -H "x-wist-operator: ${OPERATOR}" \
+  peer="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "x-wist-operator: ${OPERATOR}" \
     | jq -r '.peers[0].name // empty')"
   [[ -n "${peer}" ]] || die "还没有认证系统，先 ./dev/svc.sh onboard 接入一个"
-  roles="$(curl -fsS "${BASE_URL}/api/v1/onboarding/peers" -H "x-wist-operator: ${OPERATOR}" \
+  roles="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "x-wist-operator: ${OPERATOR}" \
     | jq -r '.peers[0].roles // [] | join(",")')"
   [[ -n "${roles}" ]] || die "${peer} 还没登记角色；接入时带 --roles a,b,c"
 

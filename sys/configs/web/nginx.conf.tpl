@@ -44,13 +44,13 @@ server {
         proxy_set_header   X-Forwarded-Proto $scheme;
     }
 
-    # 一次性接入脚本 + 登记：**取/交它们的是验证方 X（机器）**，不需要页面口令。
-    # 授权依据是 URL 里那张一次性券（分钟级 TTL；取脚本可重取，登记时兑现即废），
+    # 接入脚本 + 兑换证书：**取/交它们的是验证方 X（机器）**，不需要页面口令。
+    # 授权依据是 URL 里那张一次性券（分钟级 TTL；取 join.sh 可重取，兑换 certificate 时即废），
     # 再加上 cred 侧的 peer IP 白名单（这条跳仍然只可能来自本 nginx）。
     # 这也意味着：X 必须能访问到本 entry（一次性，之后全靠 mTLS 直连）。
-    location /onboarding/ {
+    location /enroll/ {
         # 券在 URL 里 = 一把有期限的一次性凭据。**不能写进访问日志**：
-        # 日志会落盘、被采集、被转发，拿到日志的人就能在兑现前抢用这张券。
+        # 日志会落盘、被采集、被转发，拿到日志的人就能在兑换前抢用这张券。
         access_log off;
 
         proxy_pass         http://{{cred_ip}}:8443;
@@ -59,7 +59,7 @@ server {
         proxy_set_header   X-Real-IP         $remote_addr;
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
-        # 脚本里有私钥：不让任何中间层缓存。
+        # 响应是接入脚本（只有公开材料 + 券本身）：不让任何中间层缓存这条带券的 URL。
         proxy_no_cache     1;
         add_header         Cache-Control "no-store" always;
     }

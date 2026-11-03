@@ -41,7 +41,7 @@ PEER_CERT_TTL="${CRED_PEER_CERT_TTL_SECONDS:-7776000}"
 HEARTBEAT="${CRED_HEARTBEAT_SECONDS:-30}"
 # peer 清单不进渲染值：它是 `state/peers.json` 的种子，由 `scripts/gen-pki.sh` 写成
 # `identity/cred/onboarding/<name>/peer.json`，cred 启动时导入一次。
-# 之后新增/修改都走页面（`POST /api/v1/onboarding/peers`），不再改 vars。
+# 之后新增/修改都走页面（`POST /api/v1/peers`），不再改 vars。
 
 # web 的配置目录固定落栈根，避免脚本从别的工作目录被调用时写错地方。
 WEB_CONFIG_DIR="${STACK_ROOT}/configs/web"

@@ -2,9 +2,9 @@ system:
 - name: CRED_REGISTRY
   value: ghcr.io/dayu-sec
 - name: CRED_IMAGE_TAG
-  value: v0.4.0-alpha
+  value: v0.4.1-alpha
 - name: CRED_WEB_IMAGE_TAG
-  value: v0.2.0-alpha
+  value: v0.2.1-alpha
 - name: CRED_DEMO_PEER
   value: ''
 - name: CRED_DEMO_PEER_ROLES

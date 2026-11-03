@@ -6,16 +6,16 @@ STACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE="http://127.0.0.1:18443"
 OP="x-wist-operator: dev"
 WORK=/tmp/wist-e2e
-SAND=/tmp/wist-e2e-sandbox
 
-rm -rf "$WORK" "$SAND"
-mkdir -p "$WORK" "$SAND"
+rm -rf "$WORK"
+mkdir -p "$WORK"
 
 echo "── ① 签发接入券 ────────────────────────────────────────────"
-path=$(curl -fsS -X POST "$BASE/api/v1/onboarding/peers/wist-ingest/script" -H "$OP" \
+path=$(curl -fsS -X POST "$BASE/api/v1/peers/wist-ingest/enrollment-tickets" -H "$OP" \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')
 echo "  path = $path"
-token=${path##*/}
+token=${path#/enroll/}
+token=${token%/join.sh}
 
 echo "── ② 取脚本 ────────────────────────────────────────────────"
 curl -fsSL "$BASE$path" -o "$WORK/join.sh"
@@ -25,11 +25,8 @@ fi
 echo "  脚本 $(wc -c <"$WORK/join.sh") 字节，无任何私钥 ✓"
 
 echo "── ③ 在 X 上执行（本地生成密钥，只上交 CSR）────────────────"
-# root shim：脚本要求 root 写 /etc，这里改写到沙箱目录
-mkdir -p "$SAND/bin"
-printf '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\n/usr/bin/id "$@"\n' >"$SAND/bin/id"
-chmod +x "$SAND/bin/id"
-PATH="$SAND/bin:$PATH" bash "$WORK/join.sh" --dir "$WORK/install" 2>&1 | sed 's/^/  /'
+# 不需要 root：材料目录用 --dir 指到工作目录（脚本只看目录可不可写）。
+bash "$WORK/join.sh" --dir "$WORK/install" 2>&1 | sed 's/^/  /'
 echo "  exit=$?"
 
 echo "── ④ 校验材料 ──────────────────────────────────────────────"
@@ -43,7 +40,7 @@ b=$(openssl pkey -in "$WORK/install/server.key" -pubout | openssl sha256)
 [ "$a" = "$b" ] && echo "是 ✓" || echo "否 ✗"
 
 echo "── ⑤ 券应该已经作废 ────────────────────────────────────────"
-code=$(curl -s -o /tmp/wist-e2e-replay.json -w '%{http_code}' -X POST "$BASE/onboarding/enroll/$token" \
+code=$(curl -s -o /tmp/wist-e2e-replay.json -w '%{http_code}' -X POST "$BASE/enroll/$token/certificate" \
   -H 'content-type: application/json' -H 'accept: application/x-pem-file' \
   --data-binary "{\"certificate_signing_request\":\"$(cat "$WORK/install/server.csr" | awk '{gsub(/\\/,"\\\\");gsub(/"/,"\\\"");printf "%s\\n",$0}')\"}")
 echo "  重放 HTTP $code （期望 401）"

@@ -16,17 +16,14 @@ OP="x-wist-operator: dev"
 PEER="probe-local"
 PORT="${PROBE_PORT:-19455}"
 WORK=/tmp/wist-peer-health
-SAND=/tmp/wist-peer-sandbox
 
-rm -rf "$WORK" "$SAND"; mkdir -p "$WORK" "$SAND/bin"
-printf '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\n/usr/bin/id "$@"\n' >"$SAND/bin/id"
-chmod +x "$SAND/bin/id"
+rm -rf "$WORK"; mkdir -p "$WORK"
 
 cleanup() { [[ -n "${SRV:-}" ]] && kill -9 "${SRV}" 2>/dev/null; }
 trap cleanup EXIT
 
 echo "── ① 通过 API 新建认证系统 ─────────────────────────────────"
-code=$(curl -s -o "$WORK/created.json" -w '%{http_code}' -X POST "$BASE/api/v1/onboarding/peers" \
+code=$(curl -s -o "$WORK/created.json" -w '%{http_code}' -X POST "$BASE/api/v1/peers" \
   -H "$OP" -H 'content-type: application/json' \
   -d "{\"name\":\"$PEER\",\"host\":\"localhost\",\"endpoint\":\"https://localhost:$PORT/api/v1/internal/credentials\"}")
 echo "  HTTP $code"
@@ -37,11 +34,11 @@ if [[ "$code" != "201" ]]; then
 fi
 
 echo "── ② 生成接入命令并在 'X' 上执行 ────────────────────────────"
-path=$(curl -fsS -X POST "$BASE/api/v1/onboarding/peers/$PEER/script" -H "$OP" \
+path=$(curl -fsS -X POST "$BASE/api/v1/peers/$PEER/enrollment-tickets" -H "$OP" \
   | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')
 curl -fsSL "$BASE$path" -o "$WORK/join.sh"
 rg -q 'PRIVATE KEY' "$WORK/join.sh" && { echo "  ✗ 脚本里有私钥" >&2; exit 1; }
-PATH="$SAND/bin:$PATH" bash "$WORK/join.sh" --dir "$WORK/install" 2>&1 | rg '✓|✗' | sed 's/^/  /'
+bash "$WORK/join.sh" --dir "$WORK/install" 2>&1 | rg '✓|✗' | sed 's/^/  /'
 
 echo "── ③ 起一个 mTLS 的 /healthz（要求客户端证书）─────────────"
 openssl s_server -accept "$PORT" \
@@ -58,17 +55,17 @@ curl -sS --max-time 5 \
   -o /dev/null -w '    HTTP %{http_code}\n' "https://localhost:$PORT/healthz" || echo "    探测失败"
 
 echo "── ④ 等一轮心跳（最长 40s）────────────────────────────────"
-hb=$(curl -fsS "$BASE/api/v1/onboarding/peers" -H "$OP" | python3 -c 'import sys,json;print(int(json.load(sys.stdin)["heartbeat_seconds"] or 30))')
+hb=$(curl -fsS "$BASE/api/v1/peers" -H "$OP" | python3 -c 'import sys,json;print(int(json.load(sys.stdin)["heartbeat_seconds"] or 30))')
 deadline=$(( SECONDS + hb + 10 ))
 state=""
 while [[ $SECONDS -lt $deadline ]]; do
-  state=$(curl -fsS "$BASE/api/v1/onboarding/peers" -H "$OP" \
+  state=$(curl -fsS "$BASE/api/v1/peers" -H "$OP" \
     | python3 -c "import sys,json;print([p['health'] for p in json.load(sys.stdin)['peers'] if p['name']=='$PEER'][0])")
   [[ "$state" == "up" ]] && break
   sleep 2
 done
 echo "  最终状态：$state"
-curl -fsS "$BASE/api/v1/onboarding/peers" -H "$OP" \
+curl -fsS "$BASE/api/v1/peers" -H "$OP" \
   | python3 -c "import sys,json;d=[p for p in json.load(sys.stdin)['peers'] if p['name']=='$PEER'][0];print('  ', json.dumps(d, ensure_ascii=False))"
 
 [[ "$state" == "up" ]] || { echo "✗ 心跳没能识别为 up" >&2; exit 1; }

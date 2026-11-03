@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.1-alpha] - 2026-11-03
+
+### 变更：接入面路径改名，入口白名单跟版
+
+- `CRED_IMAGE_TAG` → **`v0.4.1-alpha`**，`CRED_WEB_IMAGE_TAG` → **`v0.2.1-alpha`**。
+- `sys/configs/web/nginx.conf.tpl` 的免口令 location 从 `/onboarding/` 改为 `/enroll/`：
+  机器面现在是 `GET /enroll/<券>/join.sh` + `POST /enroll/<券>/certificate`。
+  旧的 `location /onboarding/` **不保留** —— 旧券寿命 ≤ 1h，升级窗口内失效可接受。
+- 接入脚本不再要求 root（跟版 cred 0.4.1）：`dev/check-onboarding.sh`、`dev/check-peer-health.sh`
+  里为了绕开 root 检查而伪造 `id` 的 shim 已删除。
+- `dev/svc.sh` 同上；`./dev/svc.sh onboard` 打印的落点说明也同步更新。
+
+### 升级注意
+
+- cred 与 cred-web 两个镜像**同升**：新页面调新路径，旧后端只有旧路径。
+- 已生成但尚未使用的接入命令会 404，回页面重新生成即可。
+
 ## [0.4.0-alpha] - 2026-11-03
 
 ### 新增：授权记录签名（跟版 cred 0.4.0）
