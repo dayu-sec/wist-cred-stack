@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # 开发态统一入口：本地起 / 停 / 看 cred 与 web，外加一条龙验证。
 #
-# 组件（不给 = 默认全部：cred web；也可写 all）：
+# 组件（不给 = 默认 cred + web；`all` = 三个都给）：
 #   cred   凭据服务后端（cargo run，默认 http://127.0.0.1:18443）
 #   web    管理页面（vite dev，默认 http://127.0.0.1:5174，/api 反代到 cred 并注入操作者头）
+#   peer   示例验证方（dev/peer-example，用已发布的 wist-cred-peer，https://localhost:19455）
 #
 # 用法：
-#   ./dev/svc.sh start   [组件…] [--no-build]   默认全部
-#   ./dev/svc.sh stop    [组件…]                默认全部（逆序停）
+#   ./dev/svc.sh start   [组件…] [--no-build]   默认 cred web
+#   ./dev/svc.sh stop    [组件…]                默认全部
 #   ./dev/svc.sh restart [组件…] [--no-build]   停所选（逆序）再起回（正序）
 #   ./dev/svc.sh status
-#   ./dev/svc.sh logs    [cred|web] [-f]
+#   ./dev/svc.sh logs    [cred|web|peer] [-f]
 #   ./dev/svc.sh token   [选项]                 创建一条凭据并打印明文（只此一次）
 #   ./dev/svc.sh verify  <token> [--audience wist-center]
 #   ./dev/svc.sh demo                           签发 → 验证 → 撤销 → 再验证
-#   ./dev/svc.sh onboard [peer]                生成接入链接，打印 `curl … | bash`（默认 wist-ingest）
+#   ./dev/svc.sh onboard [peer]               生成接入链接，打印 `curl … | bash`（默认 wist-ingest）
+#   ./dev/svc.sh peer-check                   对示例验证方跑一次「签发 → 验证 → 撤销 → 再验证」
 #
 # 例：
 #   ./dev/svc.sh start                 # 后端 + 页面
@@ -65,13 +67,28 @@ WEB_LOG="${RUN_DIR}/web.log"
 CRED_BIN="${CRED_SRC}/target/debug/wist-cred"
 WEB_BIN="${WEB_SRC}/node_modules/.bin/vite"
 
+# 示例验证方：一个**独立 crate**，依赖走已发布的 wist-cred-peer（不引本地 path）。
+PEER_SRC="${STACK_ROOT}/dev/peer-example"
+PEER_BIN="${PEER_SRC}/target/debug/peer-example"
+PEER_PID_FILE="${RUN_DIR}/peer.pid"
+PEER_LOG="${RUN_DIR}/peer.log"
+PEER_DIR="${RUN_DIR}/peer"
+PEER_STORE="${PEER_DIR}/state.json"
+PEER_NAME="${DEV_PEER_NAME:-peer-demo}"
+PEER_PORT="${DEV_PEER_PORT:-19455}"
+PEER_ROLES="${DEV_PEER_ROLES:-read,investigation:run}"
+PEER_BASE="/api/v1/internal/credentials"
+PEER_URL="https://localhost:${PEER_PORT}"
+
 ADDR="${DEV_ADDR:-127.0.0.1:18443}"
 WEB_PORT="${WEB_PORT:-5174}"
 OPERATOR="${DEV_OPERATOR:-dev}"
 BASE_URL="http://${ADDR}"
 WEB_URL="http://127.0.0.1:${WEB_PORT}"
 
-ALL_COMPONENTS=(cred web)
+ALL_COMPONENTS=(cred web peer)
+# `start` 不给组件时只起这两个：peer 需要先建系统、走一次接入，不适合当默认。
+DEFAULT_COMPONENTS=(cred web)
 
 usage() {
   awk 'NR>=2 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SOURCE[0]}"
@@ -277,12 +294,115 @@ stop_web() {
   rm -f "${WEB_PID_FILE}"
 }
 
+# ── peer（示例验证方）──────────────────────────────────────────────────────
+
+peer_pid() { read_pid "${PEER_PID_FILE}"; }
+
+# 用 cred 自己的客户端证书去探 —— 与心跳同一套 mTLS。
+peer_healthy() {
+  [[ -f "${PKI_DIR}/cred-client.crt" ]] || return 1
+  curl -fsS --max-time 2 \
+    --cert "${PKI_DIR}/cred-client.crt" --key "${PKI_DIR}/cred-client.key" \
+    --cacert "${PKI_DIR}/ca-s.crt" \
+    "${PEER_URL}/healthz" >/dev/null 2>&1
+}
+
+# 在 cred 里建好这个演示系统，并用**真实的一次性接入命令**把证书换到本机。
+ensure_demo_peer() {
+  local code path sand
+  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE_URL}/api/v1/onboarding/peers" \
+    -H "x-wist-operator: ${OPERATOR}" -H 'content-type: application/json' \
+    -d "{\"name\":\"${PEER_NAME}\",\"host\":\"localhost\"}")"
+  [[ "${code}" == "201" || "${code}" == "409" ]] \
+    || die "建认证系统 ${PEER_NAME} 失败（HTTP ${code}）"
+
+  [[ -f "${PEER_DIR}/install/server.crt" ]] && return 0
+
+  note "为 ${PEER_NAME} 走一次接入命令（本机生成密钥，cred 按 CSR 签）…"
+  sand="${RUN_DIR}/peer-sandbox"
+  mkdir -p "${sand}/bin" "${PEER_DIR}/install"
+  # 接入脚本要求 root（写 /etc）；这里把 `id -u` 换成 0，材料落到 PEER_DIR。
+  printf '#!/bin/sh\n[ "$1" = "-u" ] && { echo 0; exit 0; }\n/usr/bin/id "$@"\n' >"${sand}/bin/id"
+  chmod +x "${sand}/bin/id"
+
+  path="$(curl -fsS -X POST "${BASE_URL}/api/v1/onboarding/peers/${PEER_NAME}/script" \
+    -H "x-wist-operator: ${OPERATOR}" \
+    | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')"
+  curl -fsSL "${BASE_URL}${path}" -o "${sand}/join.sh"
+  PATH="${sand}/bin:$PATH" bash "${sand}/join.sh" \
+    --dir "${PEER_DIR}/install" \
+    --host localhost \
+    --advertise "${PEER_URL}${PEER_BASE}" \
+    --roles "${PEER_ROLES}" >/dev/null
+}
+
+start_peer() {
+  local do_build="$1" pid i
+  if pid="$(peer_pid)"; then
+    note "peer 已在运行（pid ${pid}，${PEER_URL}），复用。"
+    return 0
+  fi
+
+  require_cmd curl
+  cred_healthy || die "cred 没在跑，先 ./dev/svc.sh start cred"
+  [[ -d "${PEER_SRC}" ]] || die "找不到示例：${PEER_SRC}"
+
+  ensure_demo_peer
+
+  if [[ "${do_build}" == "1" ]]; then
+    note "构建 ${PEER_SRC} …"
+    (cd "${PEER_SRC}" && cargo build --quiet)
+  fi
+  [[ -x "${PEER_BIN}" ]] || die "没有二进制：${PEER_BIN}（先不带 --no-build 跑一次）"
+
+  mkdir -p "${PEER_DIR}"
+  note "启动 peer：${PEER_BIN}"
+  nohup "${PEER_BIN}" \
+    --listen "127.0.0.1:${PEER_PORT}" \
+    --dir "${PEER_DIR}/install" \
+    --store "${PEER_STORE}" \
+    --audience "${PEER_NAME}" \
+    --issuer wist-cred \
+    --known-roles "${PEER_ROLES}" \
+    --verify-endpoint >"${PEER_LOG}" 2>&1 &
+  echo $! >"${PEER_PID_FILE}"
+
+  for i in $(seq 1 50); do
+    if peer_healthy; then
+      note "peer 就绪：${PEER_URL}（audience=${PEER_NAME}）"
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "peer 启动失败，日志尾部：" >&2
+  tail -n 20 "${PEER_LOG}" >&2 || true
+  rm -f "${PEER_PID_FILE}"
+  exit 1
+}
+
+stop_peer() {
+  local pid i
+  if ! pid="$(peer_pid)"; then
+    note "peer 没在跑。"
+    rm -f "${PEER_PID_FILE}"
+    return 0
+  fi
+  note "停止 peer（pid ${pid}）"
+  kill "${pid}" 2>/dev/null || true
+  for i in $(seq 1 30); do
+    kill -0 "${pid}" 2>/dev/null || break
+    sleep 0.1
+  done
+  kill -0 "${pid}" 2>/dev/null && kill -9 "${pid}" 2>/dev/null || true
+  rm -f "${PEER_PID_FILE}"
+}
+
 # ── 组件调度 ────────────────────────────────────────────────────────────────
 
 normalize_components() {
   local given=("$@")
   if [[ ${#given[@]} -eq 0 ]]; then
-    printf '%s\n' "${ALL_COMPONENTS[@]}"
+    printf '%s\n' "${DEFAULT_COMPONENTS[@]}"
     return
   fi
   local item out=()
@@ -330,6 +450,7 @@ cmd_start() {
     case "${component}" in
       cred) start_cred "${do_build}" ;;
       web) start_web ;;
+      peer) start_peer "${do_build}" ;;
     esac
   done
 
@@ -343,8 +464,20 @@ cmd_start() {
   echo "  GET  ${BASE_URL}/healthz"
   echo "  GET  ${BASE_URL}/api/v1/credentials  -H 'x-wist-operator: ${OPERATOR}'   # 缺这个头会 401"
   echo "  POST ${BASE_URL}/api/v1/credentials   → 用 ./dev/svc.sh token"
+  local has_peer=0
+  for component in "${chosen[@]}"; do
+    [[ "${component}" == "peer" ]] && has_peer=1
+  done
+  if [[ "${has_peer}" == "1" ]]; then
+    echo
+    echo "  示例验证方：${PEER_URL}（audience=${PEER_NAME}）"
+    echo "    register  POST ${PEER_URL}${PEER_BASE}"
+    echo "    health    GET  ${PEER_URL}/healthz"
+    echo "    verify    POST ${PEER_URL}/verify   {\"token\":\"wcr_…\"}   # 仅联调"
+    echo "    签发时用 --audience ${PEER_NAME}，凭据会直接推到这里"
+  fi
   echo
-  echo "  日志：${CRED_LOG}   ${WEB_LOG}"
+  echo "  日志：${CRED_LOG}   ${WEB_LOG}   ${PEER_LOG}"
 }
 
 cmd_stop() {
@@ -361,6 +494,7 @@ cmd_stop() {
     case "${component}" in
       cred) stop_cred ;;
       web) stop_web ;;
+      peer) stop_peer ;;
     esac
   done
 }
@@ -394,6 +528,16 @@ cmd_status() {
   else
     echo "  health: 不可达"
   fi
+
+  pid="$(peer_pid || true)"
+  echo "peer   : $( [[ -n "${pid}" ]] && echo "running (pid ${pid})" || echo stopped )"
+  echo "  url  : ${PEER_URL}（audience=${PEER_NAME}）"
+  echo "  store: ${PEER_STORE}"
+  if peer_healthy; then
+    echo "  health: ok"
+  else
+    echo "  health: 不可达"
+  fi
 }
 
 cmd_logs() {
@@ -401,13 +545,14 @@ cmd_logs() {
   local follow=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      cred | web) target="$1"; shift ;;
+      cred | web | peer) target="$1"; shift ;;
       -f) follow=1; shift ;;
       *) die "未知参数：$1" ;;
     esac
   done
   local file="${CRED_LOG}"
   [[ "${target}" == "web" ]] && file="${WEB_LOG}"
+  [[ "${target}" == "peer" ]] && file="${PEER_LOG}"
   [[ -f "${file}" ]] || die "还没有日志：${file}"
   if [[ "${follow}" == "1" ]]; then
     tail -f "${file}"
@@ -567,6 +712,38 @@ cmd_restart() {
   cmd_start ${start_args[@]+"${start_args[@]}"}
 }
 
+# 用 cred 自己的客户端证书去问 peer（与推送同一套 mTLS）。
+peer_verify() {
+  curl -sS --cert "${PKI_DIR}/cred-client.crt" --key "${PKI_DIR}/cred-client.key" \
+    --cacert "${PKI_DIR}/ca-s.crt" \
+    -X POST "${PEER_URL}/verify" -H 'content-type: application/json' \
+    -d "{\"token\":\"$1\"}" \
+    | python3 -c 'import sys,json;d=json.load(sys.stdin);print("ok" if d.get("ok") else d.get("code"))'
+}
+
+# 一条命令跑完「签发 → 推送 → 本地验证 → 撤销 → 再验证」。
+cmd_peer_check() {
+  require_cmd curl
+  require_cmd python3
+  peer_healthy || die "peer 没在跑：./dev/svc.sh start peer"
+
+  local role="${PEER_ROLES%%,*}" created token id
+  created="$(curl -fsS -X POST "${BASE_URL}/api/v1/credentials" \
+    -H "x-wist-operator: ${OPERATOR}" -H 'content-type: application/json' \
+    -d "$(python3 -c 'import json,sys;print(json.dumps({"purpose":"peer-check","roles":[sys.argv[1]],"audience":sys.argv[2]}))' "${role}" "${PEER_NAME}")")"
+  token="$(printf '%s' "${created}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')"
+  id="$(printf '%s' "${created}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["credential_id"])')"
+
+  echo "① 签发 ${id}（audience=${PEER_NAME}，role=${role}）—— 摘要已推给 peer"
+  echo "② peer /verify             $(peer_verify "${token}")"
+
+  curl -s -o /dev/null -X POST "${BASE_URL}/api/v1/credentials/${id}/revoke" \
+    -H "x-wist-operator: ${OPERATOR}"
+  echo "③ cred 撤销后再 /verify     $(peer_verify "${token}")"
+  echo
+  echo "闭环成立：推送 → 本地验证 → 撤销即刻生效。"
+}
+
 # ── 入口 ────────────────────────────────────────────────────────────────────
 
 cmd="${1:-}"
@@ -582,6 +759,7 @@ case "${cmd}" in
   verify) cmd_verify "$@" ;;
   demo) cmd_demo ;;
   onboard) cmd_onboard "$@" ;;
+  peer-check) cmd_peer_check ;;
   "" | -h | --help | help) usage ;;
   *) die "未知子命令：${cmd}（用 --help 看用法）" ;;
 esac

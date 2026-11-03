@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **示例验证方** `dev/peer-example/`：一个**独立 crate**，依赖走已发布的 `wist-cred-peer`
+  （不引本地 path），就是「一个服务怎么接入 cred」的样板。
+  - `./dev/svc.sh start peer`：建系统 → 跑一次真实接入命令拿证书 → 起 mTLS 服务（:19455）；
+  - `./dev/svc.sh peer-check`：签发 → 推送 → 本地验证 → 撤销 → 再验证，一条命令跑完；
+  - `status` / `logs` / `stop` 都认 `peer`；它不随默认 `start` 启动（要先建系统、走接入）。
+
 ## [0.1.1-alpha] - 2026-11-03
 
 ### 变更

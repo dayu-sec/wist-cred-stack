@@ -31,3 +31,6 @@ values/
 .run*
 # 迁移（gops >= 1.4）：模块按目标模型分组
 sys/*/mods
+
+# 示例验证方（dev/peer-example）的构建产物；它的 Cargo.lock 要入库
+/dev/peer-example/target

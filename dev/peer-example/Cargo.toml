@@ -1,0 +1,12 @@
+[package]
+name = "peer-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "示例验证方：用 wist-cred-peer 起一个真的双向认证服务（dev 用，不发 crates.io）"
+
+# 用**已发布**的 crate，不引本地 path —— 这一步就是"下游怎么接"的样板。
+[dependencies]
+wist-cred-peer = "0.1"
+wist-pki = "0.1.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }

@@ -52,7 +52,7 @@ gops run start
 
 ```sh
 ./dev/svc.sh start          # 起 cred（:18443）+ web（:5174）
-./dev/svc.sh status         # 两个组件 + 表里条目数
+./dev/svc.sh status         # 三个组件 + 表里条目数 + 各系统
 ./dev/svc.sh token          # 创建一条凭据，打印明文（只此一次）
 ./dev/svc.sh verify <token> # 用 wist-auth 的**真实实现**验一条 token
 ./dev/svc.sh demo           # 签发 → 验证 → 撤销 → 再验证（一键闭环）
@@ -62,6 +62,23 @@ gops run start
 ./dev/svc.sh start web      # 只起页面（cred 得已经在跑）
 ./dev/svc.sh restart cred   # 改了 Rust 代码后重启后端
 ```
+
+### 示例验证方（`dev/peer-example`）
+
+一个**独立 crate**，依赖走 crates.io 上已发布的 `wist-cred-peer`（不引本地 path）——
+它就是「一个服务怎么接入 cred」的样板：收 `register`/`revoke`、维护自己的摘要表、
+双向认证、心跳。
+
+```sh
+./dev/svc.sh start peer     # 建系统 peer-demo → 走一次接入命令拿证书 → 起 mTLS 服务（:19455）
+./dev/svc.sh peer-check     # 签发 → 推给 peer → 本地验证 → 撤销 → 再验证
+./dev/svc.sh status         # peer 的可联通状态
+./dev/svc.sh logs peer -f
+./dev/svc.sh stop peer
+```
+
+它不默认随 `start` 启动：需要先建系统、跑一次接入命令，不适合当默认组件。
+材料落 `dev/.run/peer/`（含本机私钥，与 `/identity` 一样不入库）。
 
 **页面在 <http://127.0.0.1:5174>**；`http://127.0.0.1:18443/` 只会返回一份自述 JSON。
 
