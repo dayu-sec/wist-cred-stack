@@ -32,11 +32,14 @@ TLS 在 web 终止。两者在专用网段（默认 `172.28.90.0/24`）里钉死
 #      WEB_DOMAIN: cred.<zone>
 #      WEB_BIND_IP: <内网网卡或 127.0.0.1>
 
-# 2) 页面口令（**运维提供**，只在密钥文件里）
-mkdir -p .wist && chmod 700 .wist
+# 2) 页面口令（**运维提供**，只在密钥文件里；新站点最容易漏的就是这一步）
+#    Linux 一次性前置：容器以 gid 999 跑，部署账号要属于该组；.wist 用 setgid 继承
+sudo usermod -aG 999 "$USER"        # 重新登录后生效；macOS / Docker Desktop 可跳过
+mkdir -p .wist && chmod 2770 .wist
 printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
-chmod 600 .wist/sec-value.yml
-# → 打开页面要输的就是上面那串（用户名一概不需要：直接一个口令）
+chmod 640 .wist/sec-value.yml        # 属组 = 容器 gid（999）
+gops sec fix                         # 按 sys-prj.yml 的 secrets.mode 收敛一次
+# → 打开页面要输的就是上面那串（没有用户名，就一个口令）
 
 # 3) 变量解析 + 渲染（localize 会检查口令有没有来源）
 gops sys update

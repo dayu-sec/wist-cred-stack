@@ -110,13 +110,41 @@ EOF
 # 但那是 `docker compose up` 之后才看到的。放在 localize 里，早一步、少一轮重启。
 #
 # **缺密钥就让 localize 失败**，不随机生成：脚本一生成，口令就落进终端 / CI 日志，
-# 而且“现场有个没人知道来历的口令”比“起不来”更难查。补密钥的命令见 README「起栈」。
+# 而且“现场有个没人知道来历的口令”比“起不来”更难查。
+
+# 新站点（或刚 `gops prj import` 进来的站点）第一道坑就是“文件根本不存在”。
+# 这时**先自己判**，把能照抄的命令怼到脸上：调 `gops sec list` 只会回一句
+# “声明了就必须存在”，不说该敲什么，也不提属组/模式。
+SEC_FILE="${STACK_ROOT}/.wist/sec-value.yml"
+if [[ ! -f "${SEC_FILE}" ]]; then
+  cat >&2 <<'MSG'
+错误：密钥文件不存在（<栈根>/.wist/sec-value.yml）
+
+  页面口令只存在这个文件里（不入库、不进交付包）。首次部署先建它：
+
+    # ① 一次性前置（Linux）：容器以 gid 999 跑，密钥必须“属组可读”
+    #    部署账号加入 gid 999（重新登录后生效）；.wist 用 setgid，新文件自动继承该组
+    sudo usermod -aG 999 "$USER"
+    mkdir -p .wist && chmod 2770 .wist
+
+    # ② 生成口令（24 hex；这就是打开页面时要输的那串）
+    printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
+
+    # ③ 权限收敛到 sys-prj.yml 的 secrets.mode（0640）；gops 只改 mode、不改属组
+    chmod 640 .wist/sec-value.yml
+    gops sec fix
+
+  然后重跑 gops sys localize。
+  （macOS / Docker Desktop 不看属组，① 可跳过。）
+MSG
+  exit 1
+fi
 
 # 密钥读取统一走 gops：路径解析、文件模式、格式、值类型都由它校验，
 # 不在这里重复实现一遍（与 center / gateway 的 `scripts/lib/sec.sh` 同一口径）。
 #   · `gops sec` 以**当前目录**的系统清单为准 → 显式 cd 到栈根；
 #   · 成功时屏蔽 stderr（每次调用会打一行版本横幅），键缺失返回空串；
-#   · 文件本身不合格（不存在 / 权限过宽）→ 打错误信息并返回非零。
+#   · 文件本身不合格（模式不对 / 格式坏 / 属组不对）→ 把 gops 的原因原样透出。
 sec_get() {
   local key="$1" out
   if ! command -v gops >/dev/null 2>&1; then
@@ -124,7 +152,11 @@ sec_get() {
     return 1
   fi
   if ! ( cd "${STACK_ROOT}" && gops sec list --json >/dev/null ); then
-    echo "错误：密钥文件不可用（sys-prj.yml: secrets.file = .wist/sec-value.yml）" >&2
+    # 文件在、但 gops 不认（模式与 secrets.mode 不符等）：把它的原文漏出来，
+    # 再补一句怎么修 —— 否则现场只看得到 “密钥文件不可用”。
+    echo "错误：密钥文件不合格（sys-prj.yml: secrets.file = .wist/sec-value.yml）；gops 说：" >&2
+    ( cd "${STACK_ROOT}" && gops sec list >/dev/null ) || true
+    echo "  修：chmod 640 .wist/sec-value.yml && gops sec fix（属组必须是容器 gid 999）" >&2
     return 1
   fi
   out="$( cd "${STACK_ROOT}" && gops sec get --show "${key}" 2>/dev/null )" || out=""
@@ -136,13 +168,12 @@ if [[ -z "${password}" ]]; then
   cat >&2 <<'MSG'
 错误：页面口令没有来源。
 
-  .wist/sec-value.yml 里缺 cred_web_password。补上（口令就是下面生成的那串）：
+  .wist/sec-value.yml 在，但里面缺 cred_web_password。补一行（口令就是下面生成的那串）：
 
-    mkdir -p .wist && chmod 700 .wist
-    printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
-    chmod 600 .wist/sec-value.yml
+    printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" >> .wist/sec-value.yml
+    gops sec fix
 
-  然后重跑 gops sys localize。这个口令就是打开页面时要输的那个。
+  然后重跑 gops sys localize。
 MSG
   exit 1
 fi

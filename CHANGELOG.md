@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.3-alpha] - 2026-11-03
+
+### 修复：新站点首次部署的引导路径
+
+新导入的站点没有 `.wist/sec-value.yml`，`gops sys localize` 原本只回一句 gops 的
+“声明了就必须存在”，不说该敲什么 —— 现场卡在这里时看不出下一步。
+
+- `scripts/init-cred.sh` 先自己判文件在不在，不在就打印**可直接复制**的三段命令：
+  属组前置（`usermod -aG 999` + `.wist` setgid）→ 生成 `cred_web_password` →
+  `chmod 640` + `gops sec fix`。仍然**不**随机生成口令（会落终端/CI 日志）。
+- 文件在但不合格（模式与 `secrets.mode` 不符等）时，把 **gops 的原文**透出来再补一句怎么修。
+- README「起栈」第 2 步同步改成 0640 + 属组 + `gops sec fix`（之前写的还是过时的 `0600`）。
+- 回归用例补充“引导提示必须包含 gops sec fix / cred_web_password / usermod -aG 999”。
+
 ## [0.3.2-alpha] - 2026-11-03
 
 ### 安全自查（三轮）修复

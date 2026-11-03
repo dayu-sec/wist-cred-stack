@@ -58,10 +58,14 @@ no() { fail=$((fail + 1)); printf '  FAIL %s\n' "$*" >&2; }
 
 run_init() { ( cd "${STACK}" && ./scripts/init-cred.sh configs/cred example.test ); }
 
-echo "① 缺密钥文件 → localize 必须失败"
+echo "① 缺密钥文件 → localize 必须失败，且把能照抄的命令给出来"
 out="$(run_init 2>&1)"; rc=$?
 [[ ${rc} -ne 0 ]] && ok "退出码 ${rc}" || no "应当失败，实际退出码 0"
-grep -q '密钥文件不可用' <<<"${out}" && ok "提示指向密钥文件" || no "缺少「密钥文件不可用」提示"
+grep -q '密钥文件不存在' <<<"${out}" && ok "提示「密钥文件不存在」" || no "缺少「密钥文件不存在」提示"
+# 新站点首次部署就靠这段命令：缺了就变成“报错但不知道敲什么”
+grep -q 'gops sec fix' <<<"${out}" && ok "给出 gops sec fix" || no "没提权限收敛"
+grep -q 'cred_web_password' <<<"${out}" && ok "给出建口令的命令" || no "没给建口令的命令"
+grep -q 'usermod -aG 999' <<<"${out}" && ok "给出属组前置（Linux）" || no "没提属组"
 
 echo "② 有文件但缺键 → 必须失败，并给出补密钥的命令"
 mkdir -p "${STACK}/.wist"
