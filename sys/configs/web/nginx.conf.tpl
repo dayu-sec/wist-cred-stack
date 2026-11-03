@@ -5,10 +5,11 @@
 #
 # 职责：**终止 TLS** + 托管前端静态产物 + SPA 深链回退 + 把 /api 反代到 cred。
 #
-# ⚠ 这一跳是本栈唯一的人机入口，也是唯一写操作者头的地方：
-#   · 认证在 nginx（阶段一 basic auth；将来接用户中心 / 钉钉 OIDC 时换这一层，下游不动）；
-#   · `x-wist-operator` **只由这里写**，客户端自带的同名头不会透传（nginx 只发 set 过的值）；
-#   · cred 侧还会用 peer IP 白名单二次确认"请求确实来自这个 nginx"。
+# ⚠ 这一跳**不碰身份**：
+#   · 页面口令由页面自己输、带在 `Authorization: Bearer` 上，由 cred 自己验（`mode = token`）；
+#   · 所以这里**不写** `x-wist-operator`、不做 `auth_basic`，也不改写 Authorization；
+#   · cred 侧还有 peer IP 白名单（`trusted_peers`）确认“请求确实来自这个 nginx”；
+#   · 将来接用户中心 / 钉钉时换的是 cred 的认证分支（`mode = oidc`），这一层仍然不动。
 
 server {
     listen 443 ssl;

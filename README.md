@@ -3,19 +3,20 @@
 凭据服务 `wist-cred` + 管理页面 `wist-cred-web` 的一站式部署栈（gops）。
 
 > 设计口径：`wist-design/doc/design/foundation/auth-token-verification.md`
-> （D15 签发独立在计算区、D17 页面与认证解耦、S1/S3 的 listener 与 peer 约束）。
+> （D15 签发独立在计算区、D17 人机面的验证归产品自己、S1/S3 的 listener 与 peer 约束）。
 
 ## 拓扑
 
 ```text
-        浏览器 / 内网反代
-              │ HTTPS（basic auth）
+        浏览器
+              │ HTTPS
               ▼
       web（nginx，容器内 443）        ← 宿主发布 ${WEB_BIND_IP}:${WEB_HOST_PORT}
+              │   只做 TLS / 静态 / 反代，**不做认证**
               │ http://<cred>:8443     ← 只走专用 docker 网络
               ▼
       cred（wist-cred，容器内 8443）   ← **不对宿主发布任何端口**
-              │
+              │   页面在这里登录：口令 → Authorization: Bearer → cred 自己验
               └── /wist-cred/state/credentials.db（只存 sha256 摘要）
 ```
 
@@ -137,7 +138,8 @@ docker compose --project-directory . -f sys/docker-compose.yml --profile demo bu
 
 **页面在 <http://127.0.0.1:5174>**；`http://127.0.0.1:18443/` 只会返回一份自述 JSON。
 
-dev 态不做入口认证：`x-wist-operator` 由 vite 代理注入（`DEV_OPERATOR`，默认 `dev`）。
+dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 vite 代理注入
+（`DEV_OPERATOR`，默认 `dev`）—— 开发时不用每次输口令。
 凭据表落 `dev/configs/state/`，与发布态互不影响。
 
 依赖同级仓库（可用 env 覆盖）：
@@ -165,7 +167,7 @@ dev 态不做入口认证：`x-wist-operator` 由 vite 代理注入（`DEV_OPERA
 
 | 项 | 状态 |
 |---|---|
-| 入口认证 | 阶段一 **basic auth**（`$remote_user` → `x-wist-operator`）。将来接用户中心 / 钉钉 OIDC 只换 nginx 这一层，下游不动（D17） |
+| 入口认证 | 在**产品里**：页面登录框（`wist-cred-web`）→ 口令带在 `Authorization: Bearer` 上 → `wist-cred` 自己验（`mode = "token"`，配置只存 sha256）。nginx 只做 TLS / 静态 / 反代；将来接用户中心 / 钉钉只换 cred 的认证分支（`mode = "oidc"`），页面不动 |
 | 签发 → 验证方推送 | **P3，未实现**。当前是 P2：人工分发登记表（凭据表可直接作为 X 侧种子） |
 | 存储 | 单文件 JSON（`configs/cred/state/credentials.db`），无数据库 |
 | 密钥 | **本服务目前不持任何密钥**；P3 推送时才需要 CA-I 客户端证书 |

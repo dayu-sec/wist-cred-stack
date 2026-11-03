@@ -4,14 +4,14 @@ mod operators {
 
   // 阶段扩展点：`gops sys localize` 写完系统根 .env 之后执行 `gx run localize`。
   // 合并后的系统变量以**环境变量**注入本子进程，用 $(printenv XXX) 读。
-  // 每个动作都**幂等**（存在即跳过）——证书与 htpasswd 绝不能每次重生成。
-  // htpasswd 由密钥文件（`.wist/sec-value.yml` 的 cred_web_password）推导：口令相同就不重写。
+  // 每个动作都**幂等**（存在即跳过）——证书绝不能每次重生成。
+  // 页面口令不在这里生成任何文件：它只在密钥文件里，由 cred 自己展开成 sha256。
   flow localize {
     // 0) 目录先建：渲染目标落 configs/，站点身份落 identity/。
     //    Docker 会在 up 时自建缺失的挂载源，但那时属主是 root，所以先建、随后由 `gops sys perms` 归位。
     gx.cmd ( "mkdir -p configs/cred configs/cred/state configs/web identity/cred" );
 
-    // ① 备料：站点证书（identity/cred）+ 渲染值（configs/cred/*.value.json）+ 入口 htpasswd。
+    // ① 备料：站点证书（identity/cred）+ 渲染值（configs/cred/*.value.json）+ 页面口令的存在性检查。
     gx.cmd ( "./scripts/init-cred.sh configs/cred $(printenv WEB_DOMAIN)" );
 
     // ①b 双向认证的 PKI + 每个验证方的接入包（identity/cred/onboarding/<name>/）。
@@ -21,7 +21,7 @@ mod operators {
 
     // ② 渲染 cred 运行配置（依赖 ①）。
     //    模板只写 ${...} 占位，真值不落模板；
-    //    入口口令也不在这里（它在栈根 .wist/sec-value.yml，只在 ① 变成了 htpasswd 的摘要）。
+    //    入口口令也不在这里（它在栈根 .wist/sec-value.yml，配置里只有占位符，由 cred 启动时展开）。
     gx.tpl (
       tpl  : "./sys/configs/cred/wist-cred.toml.tpl",
       dst  : "./configs/cred/wist-cred.toml",

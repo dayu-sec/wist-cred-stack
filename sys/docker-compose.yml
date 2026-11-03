@@ -2,13 +2,14 @@
 #
 # 拓扑（**只有一个宿主入口**）：
 #
-#      浏览器 / 内网反代
-#            │ HTTPS（basic auth）
+#      浏览器
+#            │ HTTPS
 #            ▼
 #        web（nginx，容器内 443）     ← 宿主发布 ${WEB_BIND_IP}:${WEB_HOST_PORT}
+#            │ 只做 TLS / 静态 / 反代（**不做认证**）
 #            │ http://<cred>:8443    ← 只走专用 docker 网络
 #            ▼
-#        cred（wist-cred，容器内 8443）  ← **不对宿主发布任何端口**
+#        cred（wist-cred，容器内 8443）  ← **不对宿主发布任何端口**；页面口令在这里验
 #
 # 为什么 cred 不发布端口：它的入站是 plain HTTP + peer IP 白名单（设计文档 S3），
 # 只能由 web 到达；TLS 在 web 终止。两者在专用网段里固定 IP，`trusted_peers` 才写得住。

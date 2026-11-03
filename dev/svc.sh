@@ -40,8 +40,9 @@
 #   WEB_PORT          页面端口（默认 5174）
 #   DEV_OPERATOR      操作者名（默认 dev）
 #
-# 关于身份：dev 没有入口认证，`x-wist-operator` 由 vite 代理注入（发布态由 nginx
-# 做完 basic auth 后注入）。浏览器始终不碰这个头。
+# 关于身份：dev 里 cred 跑 `mode = "ingress"`，`x-wist-operator` 由 vite 代理注入 ——
+# 开发时不用每次输口令。**发布态不是这么做的**：`mode = "token"`，页面有登录框，
+# 口令带在 `Authorization: Bearer` 上，由 cred 自己验。
 #
 # 注：dev 循环直接用 cargo build / vite（跳过 gx 的版本同步 + 全量测试）；
 #     提交 / 发版前仍以 `gx run lint` / `gx run build` 为准。
