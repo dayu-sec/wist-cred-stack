@@ -5,6 +5,12 @@ system:
   value: v0.1.1-alpha
 - name: CRED_WEB_IMAGE_TAG
   value: v0.1.1-alpha
+- name: CRED_DEMO_PEER
+  value: ''
+- name: CRED_DEMO_PEER_ROLES
+  value: read,investigation:run
+- name: COMPOSE_PROFILES
+  value: ''
 - name: CRED_NET_SUBNET
   value: 172.28.90.0/24
 - name: CRED_IP

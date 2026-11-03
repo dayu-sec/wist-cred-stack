@@ -9,6 +9,10 @@
   - `./dev/svc.sh start peer`：建系统 → 跑一次真实接入命令拿证书 → 起 mTLS 服务（:19455）；
   - `./dev/svc.sh peer-check`：签发 → 推送 → 本地验证 → 撤销 → 再验证，一条命令跑完；
   - `status` / `logs` / `stop` 都认 `peer`；它不随默认 `start` 启动（要先建系统、走接入）。
+- **容器里的演示验证方（`COMPOSE_PROFILES=demo`）**：`CRED_DEMO_PEER` 非空时，localize 阶段用
+  CA-S 给这个服务名签一张服务器证书并写种子（`identity/cred/onboarding/<name>/peer.json`），
+  compose 的 `peer-demo` 服务直接拉起来 —— **不需要走一键接入**（那是给真机器用的）。
+  默认关闭；开的时候两个变量一起写（`CRED_DEMO_PEER` + `COMPOSE_PROFILES`）。
 
 ## [0.1.1-alpha] - 2026-11-03
 

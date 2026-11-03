@@ -70,6 +70,45 @@ services:
       crednet:
         ipv4_address: ${WEB_IP}
 
+  # ── 演示用验证方（可选，`COMPOSE_PROFILES=demo` 时才起）──
+  #
+  # 它不是 cred 的一部分，而是“另一个系统”：收 register/revoke、自己存摘要表、心跳。
+  # 证书在 localize 阶段就签好了（SAN = 服务名），种子也写进了 onboarding/，
+  # 所以它启动后**不需要**走一键接入 —— 那是给真机器用的。
+  #
+  # 摘要表放在容器内（不挂宿主）：重启会丢，正好用来演示 API 的“重推”。
+  peer-demo:
+    container_name: wist-cred-stack-peer-demo
+    profiles: ["demo"]
+    build:
+      # 相对**项目目录**（gops 以栈根为 project-directory，与上面的 ./identity 一致）
+      context: ./dev/peer-example
+    image: wist-cred-peer-example:local
+    restart: unless-stopped
+    command:
+      - --listen
+      - 0.0.0.0:19443
+      - --dir
+      - /certs
+      - --store
+      - /data/state.json
+      - --audience
+      - ${CRED_DEMO_PEER}
+      - --issuer
+      - wist-cred
+      - --known-roles
+      - ${CRED_DEMO_PEER_ROLES}
+      - --verify-endpoint
+    volumes:
+      # 宿主签好的服务器证书 + 本机私钥（只读）
+      - ./identity/demo-peer:/certs:ro
+      # cred 出示的客户端证书由 CA-I 签：它的公开证书就是这里的信任锚
+      - ./identity/cred/ca-i.crt:/certs/client-ca.pem:ro
+    depends_on:
+      - cred
+    networks:
+      crednet:
+
 networks:
   crednet:
     name: wist-cred-stack-crednet

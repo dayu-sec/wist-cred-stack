@@ -191,6 +191,46 @@ EOF
   note "已写入 ${name} 接入包（公开材料；服务器证书由本机 CSR 在运行期换）"
 done
 
+# ── 演示用验证方（可选）────────────────────────────────────────────────────
+#
+# `CRED_DEMO_PEER` 非空才做两件事：
+#   1. 用 CA-S 给这个名字签一张**服务器证书**（SAN = 服务名），材料落 `identity/demo-peer/`；
+#   2. 在 onboarding/<name>/peer.json 里写一条种子（含收数地址与可验角色），
+#      cred 启动时导入 —— 所以它**不需要**走一键接入（那是给真机器用的）。
+#
+# 私钥是宿主生成的，与“X 本机生成”的正常流程不同。这是刻意的例外：
+# demo peer 就是这个栈自己拉起的旁路服务（sidecar），不是外部机器。
+DEMO_PEER="${CRED_DEMO_PEER:-}"
+if [[ -n "${DEMO_PEER}" ]]; then
+  demo_dir="$(dirname "${IDENTITY_DIR}")/demo-peer"
+  if [[ -f "${demo_dir}/server.crt" && -f "${demo_dir}/server.key" ]]; then
+    note "演示验证方 ${DEMO_PEER} 的证书已存在，跳过"
+  else
+    mkdir -p "${demo_dir}"
+    sign_leaf "demo-peer" "${DEMO_PEER}" "${DEMO_PEER}" "serverAuth" \
+      "${demo_dir}/server" "${IDENTITY_DIR}/ca-s.crt" "${IDENTITY_DIR}/ca-s.key"
+    note "已签发演示验证方证书（CN/SAN=${DEMO_PEER}，CA-S 签）"
+  fi
+
+  # 角色 → JSON 字符串数组（与接入脚本里那段同一写法）。
+  demo_roles="${CRED_DEMO_PEER_ROLES:-read,investigation:run}"
+  demo_roles_json="$(printf '%s' "${demo_roles}" | tr ',' '\n' \
+    | awk '{ gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 != "") printf "%s\"%s\"", (n++ ? ", " : ""), $0 }')"
+
+  demo_seed="${IDENTITY_DIR}/onboarding/${DEMO_PEER}"
+  mkdir -p "${demo_seed}"
+  cat >"${demo_seed}/peer.json" <<EOF
+{
+  "name": "${DEMO_PEER}",
+  "host": "${DEMO_PEER}",
+  "endpoint": "https://${DEMO_PEER}:19443/api/v1/internal/credentials",
+  "roles": [${demo_roles_json}]
+}
+EOF
+  chmod 644 "${demo_seed}/peer.json"
+  note "演示验证方种子：${demo_seed}/peer.json（roles: ${demo_roles}）"
+fi
+
 echo
 note "CA-S（信任锚 + 签发用）：      ${IDENTITY_DIR}/ca-s.crt（私钥只给 cred）"
 note "CA-I（交给 X 当 client_ca）：  ${IDENTITY_DIR}/ca-i.crt"

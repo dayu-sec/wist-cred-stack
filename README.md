@@ -48,6 +48,29 @@ gops run start
 | `configs/web/nginx.conf` | 入口配置（由 `sys/configs/web/nginx.conf.tpl` 渲染） |
 | `configs/web/htpasswd` | 阶段一的入口认证，`admin` + 随机口令（**只打印一次**） |
 
+### 演示用的验证方（可选）
+
+想在不接任何真实系统的情况下验证「推送 / 心跳 / 撤销」整条链路，开一个 demo peer：
+
+```yaml
+# values/<系统>/sys_value.yml（两个一起开，缺一个都不会起作用）
+CRED_DEMO_PEER: peer-demo
+CRED_DEMO_PEER_ROLES: read,investigation:run
+COMPOSE_PROFILES: demo
+```
+
+```sh
+gops sys localize      # 用 CA-S 签一张 SAN=peer-demo 的服务器证书 + 写种子
+gops run start         # compose 把 peer-demo 一并拉起
+docker compose --project-directory . -f sys/docker-compose.yml --profile demo build  # 首次需要构建镜像
+```
+
+它**不走一键接入**：证书在 localize 阶段就签好了（宿主生成，因为它是本栈自己的旁路服务），
+种子 `identity/cred/onboarding/peer-demo/peer.json` 在 cred 启动时导入 —— 所以 cred 一启动
+就知道往 `https://peer-demo:19443/...` 推。摘要表放在容器内，重启会丢，正好用来试 API 的「重推」。
+
+关掉时记得把 `identity/cred/onboarding/peer-demo/` 一起删了，否则 cred 仍会把它当成一个系统。
+
 ## 开发态（本地跑，不进 docker）
 
 ```sh

@@ -21,6 +21,18 @@ system:
   - name: CRED_WEB_IMAGE_TAG
     value: v0.1.1-alpha
 
+  # ── 演示用验证方（可选）──
+  # 两个一起改，缺一个就不会起：
+  #   CRED_DEMO_PEER    非空（如 peer-demo）→ localize 阶段给它签证书 + 写种子
+  #   COMPOSE_PROFILES  demo             → compose 才把这个服务拉起来
+  # 关掉时记得同时删 `identity/cred/onboarding/<name>/`，否则 cred 仍会把它当成一个系统。
+  - name: CRED_DEMO_PEER
+    value: ''
+  - name: CRED_DEMO_PEER_ROLES
+    value: read,investigation:run
+  - name: COMPOSE_PROFILES
+    value: ''
+
   # ── 网络：专用 bridge，两个容器固定 IP ──
   #
   # 为什么要固定：cred 的入站是 **plain HTTP + peer IP 白名单**（S3），
