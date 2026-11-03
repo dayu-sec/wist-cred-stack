@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### 安全自查（三轮）修复
+
+- **密钥文件改为 0640**（原 `0600`）：cred 以 uid 999 运行、靠**属组**读密钥，
+  0600 在 Linux 上会让它读不到（fail-closed 但服务起不来）。与 `wist-center-stack` 同一口径；
+  `gops sec list` 会在 mode 与声明不符时直接报错，`gops sec fix` 只改 mode、不改属组。
+- **`/onboarding/` 关掉 access_log**：一次性券在 URL 里，不能进日志（日志会落盘 / 被采集）。
+- **`server_tokens off`**：不再在 `Server` 头 / 错误页透漏 nginx 版本。
+- 删掉一条失效的 `auth_basic off`（入口早就不做 basic auth 了）。
+
+### 已知与接受（不修）
+
+- 页面口令**没有失败锁定**：它是部署方设置的 24 hex（≥96 bit），在线猜测不可行；
+  401 风暴的来源（页面拿错口令轮询）已在协议上麦掉（页面收到 `invalid_*` 就地清掉）。
+- `web` 容器仍是 **root**（nginx 官方镜像要绑 443）；与其它栈一致，未改。
+- crednet **不限制出网**：cred 需要向外推送摘要（mTLS 到各认证系统）。
+
 ## [0.3.1-alpha] - 2026-11-03
 
 ### 新增：本仓有了发布流水线（部署包 + GitHub Release）

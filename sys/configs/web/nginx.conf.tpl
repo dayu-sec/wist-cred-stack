@@ -15,6 +15,9 @@ server {
     listen 443 ssl;
     server_name {{web_domain}};
 
+    # 不回版本号：错误页 / Server 头里别透漏 nginx 版本（指纹面越小越好）。
+    server_tokens off;
+
     ssl_certificate     /certs/server.crt;
     ssl_certificate_key /certs/server.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -41,12 +44,14 @@ server {
         proxy_set_header   X-Forwarded-Proto $scheme;
     }
 
-    # 一次性接入脚本 + 登记：**取/交它们的是验证方 X（机器），不是人**，所以没有 basic auth。
+    # 一次性接入脚本 + 登记：**取/交它们的是验证方 X（机器）**，不需要页面口令。
     # 授权依据是 URL 里那张一次性券（分钟级 TTL；取脚本可重取，登记时兑现即废），
     # 再加上 cred 侧的 peer IP 白名单（这条跳仍然只可能来自本 nginx）。
     # 这也意味着：X 必须能访问到本 entry（一次性，之后全靠 mTLS 直连）。
     location /onboarding/ {
-        auth_basic off;
+        # 券在 URL 里 = 一把有期限的一次性凭据。**不能写进访问日志**：
+        # 日志会落盘、被采集、被转发，拿到日志的人就能在兑现前抢用这张券。
+        access_log off;
 
         proxy_pass         http://{{cred_ip}}:8443;
         proxy_http_version 1.1;

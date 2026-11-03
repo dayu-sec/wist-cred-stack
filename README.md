@@ -72,11 +72,15 @@ gops run start
   不写身份、不注入头 —— 权限处理不在反代那一层；
 - **口令怎么查 / 怎么换**：`gops sec get --show cred_web_password`；换口令 = 改密钥 +
   `gops sys localize` + 重启 cred（配置里只有摘要，重算很快）；
+- **文件权限是 0640、属组 = 容器 gid（999）**：cred 以 uid 999 运行，靠**属组**读密钥。
+  Linux 上需要一次性前置：`usermod -aG 999 <部署账号>`，并让 `.wist` 用 setgid（2770）继承该组。
+  `gops sec fix` 只改 mode、不改属组；声明与磁盘不一致时 `gops sec list` 会直接报错（fail-closed）。
 - **缺密钥 = 起不来**：localize 失败并打印补密钥的命令；就算漏过去，cred 加载时会因占位符
   解不出来拒启 —— 不会静默成“空口令也能进”；
 - **机器 / 排查用 curl**：`curl -H "Authorization: Bearer $(gops sec get --show cred_web_password)" ...`；
 - **`/onboarding/`（取接入脚本、登记）本来就不要口令**：拿它的是机器，
-  授权靠 URL 里那张一次性券 + peer IP 白名单。
+  授权靠 URL 里那张一次性券 + peer IP 白名单。**那条 location 关掉了 access_log** ——
+  券就是一把有期限的凭据，不能写进日志。
 
 > 开发态（`./dev/svc.sh`）用的仍是 `mode = "ingress"`（vite 代理注入操作者头）——
 > 开发时不想每次输口令；发布态一律 `token`。

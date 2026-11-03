@@ -13,7 +13,7 @@ perms:
 
 # 密钥：页面口令（人机面）不从配置/环境里来，而是密钥文件。
 #
-#   .wist/sec-value.yml（**运维提供**、不入库、0600）
+#   .wist/sec-value.yml（**运维提供**、不入库、**0640**）
 #     cred_web_password: "..."    # → 归一化为 SEC_CRED_WEB_PASSWORD
 #
 # 配置模板里写 `admin_password = "${SEC_CRED_WEB_PASSWORD}"`，**由 cred 自己展开并只留 sha256**
@@ -23,7 +23,11 @@ perms:
 secrets:
   file: .wist/sec-value.yml
   format: yaml
-  mode: "0600"
+  # **必须是 0640**：cred 以 uid 999 运行，靠**属组**读密钥（与 wist-center-stack 同一口径）。
+  # 0600 在 Linux 上会让 cred 读不到（fail-closed，但服务起不来）：bind 挂载不改属主，
+  # 宿主文件属主是部署账号。一次性前置（管理员）：部署账号加入 gid 999（`usermod -aG`），
+  # `.wist` 用 setgid（2770）让新建文件继承该组。
+  mode: "0640"
 
 # `gops sys package` 打包时排除的路径（资源树里都是可重建 / 每部署一份的东西）。
 ignore:
