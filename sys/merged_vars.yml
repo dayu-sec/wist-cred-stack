@@ -41,5 +41,9 @@ system:
   value: '7776000'
 - name: CRED_HEARTBEAT_SECONDS
   value: '30'
+- name: CRED_PUSH_TIMEOUT_SECONDS
+  value: '10'
 - name: TZ
   value: Asia/Shanghai
+- name: TZ_RUNTIME_DIR
+  value: ./configs/runtime/tz

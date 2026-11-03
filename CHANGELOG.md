@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.4-alpha] - 2026-11-03
+
+### 变更：把「写死的值」变成变量（对齐 `wist-gateway-stack` 的取值口径）
+
+- **时区真的接线了**。`TZ` 以前只是一个变量：compose 不设 env、也不挂数据，所以它一次都没生效过。
+  新增 `scripts/init-timezone.sh` + `TZ_RUNTIME_DIR`：localize 把宿主当前时区的 zone 文件
+  复制进栈内，三个容器都用 `TZ=:/etc/tz-runtime/localtime` 读它 ——
+  不挂宿主 `/etc/localtime`（会让 `gops sys perms` 去改系统文件权限），
+  也不只写 `TZ=<zone 名>`（镜像没 tzdata 时 glibc 静默回 UTC）。与网关栈同一套做法。
+- **`CRED_PUSH_TIMEOUT_SECONDS`**（默认 10）：渲染到 `[push].timeout_seconds`。
+  跨区部署（互联网区 → 计算区）链路慢时调大；心跳是串行探的，调太大也会拖慢一轮。
+- **`gops sys perms --apply` 进 localize 流程**。`sys-prj.yml` 早就声明了 `perms.services.cred`，
+  流程注释也写着“随后由 `gops sys perms` 归位”，但**实际没有这一步** ——
+  Linux 上新部署时 `configs/cred/state` 会停在部署账号名下，cred（999:999）写不进去。
+
+### 修复：`.env.example` 漂移
+
+- 它还钉着 `v0.3.0-alpha` / `v0.2.0-alpha`（落后两个发布）—— `gops sys update` **不会**重写它。
+  已同步到当前值，并新增 `dev/tests/env-example-drift.test.sh` 逐键对比 `sys/merged_vars.yml`，
+  以后再忘就不会静默漂了。
+
+### 新增测试
+
+- `dev/tests/init-timezone.test.sh`：产物是实体文件（非悬空链接）、二次跑幂等、
+  未知 `TZ` 回落宿主 `/etc/localtime`、compose 真的把 `TZ` 与数据挂到容器。
+
 ## [0.4.3-alpha] - 2026-11-03
 
 ### 修复：接入登记打到 443（脚本里的地址丢端口）

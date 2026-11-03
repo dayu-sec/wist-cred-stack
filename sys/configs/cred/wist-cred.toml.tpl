@@ -48,7 +48,8 @@ signing_key = "/wist-cred/identity/signing.key"
 client_cert = "/wist-cred/identity/cred-client.crt"
 client_key = "/wist-cred/identity/cred-client.key"
 ca = "/wist-cred/identity/ca-s.crt"
-timeout_seconds = 10
+# 单次推送 / 探活的超时。渲染值来自 CRED_PUSH_TIMEOUT_SECONDS（跨区链路慢时调大）。
+timeout_seconds = {{push_timeout_seconds}}
 
 # ── 认证系统接入 ────────────────────────────────────────────────────────────
 # `dir`：部署态种子目录，启动时导入一次（已有的注册表条目不覆盖）。

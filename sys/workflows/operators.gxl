@@ -34,5 +34,20 @@ mod operators {
       dst  : "./configs/web/nginx.conf",
       file : "./configs/web/nginx.value.json"
     );
+
+    // ④ 时区数据（所有容器共用一份）：把宿主当前时区的 zone 文件复制进栈内。
+    //    为什么不直接挂宿主 /etc/localtime、也不只设 `TZ=<zone 名>`：见脚本顶部。
+    //    必须在 perms 之前：新建目录要跟其它 bind 源一起对齐（属主=部署账号、属组=999）。
+    gx.cmd ( "./scripts/init-timezone.sh" );
+
+    // ⑤ 宿主侧属主/权限对齐（Linux 专有；macOS/OrbStack 直接跳过）：
+    //    cred 固定以 999:999 运行，而 Linux 的 bind 挂载**不改属主** —— 未对齐会稳定地造成
+    //    cred 写不进 `configs/cred/state`（凭据表 + peers.json），表现为启动即报错。
+    //    用 `gops sys perms --apply`（gops ≥ 2.7）：它从 `docker compose config` 派生
+    //    「哪些挂载要写、哪些只读」，不需要本仓维护名单。
+    //    必须在 localize **最后**（前面几个脚本会新建文件）；
+    //    必须在 `docker compose up` **之前**（Docker 会把缺失的挂载源建成 root:root，之后就写不动了）。
+    //    幂等：已对齐时不写盘、也不要任何权限；`gops sys perms --check` 可做只读自检。
+    gx.cmd ( "gops sys perms --help >/dev/null 2>&1 || { echo '错误：本栈需要 gops >= 2.7（gops sys perms）'; exit 1; }; gops sys perms --apply" );
   }
 }

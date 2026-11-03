@@ -98,5 +98,15 @@ system:
   - name: CRED_HEARTBEAT_SECONDS
     value: '30'
 
+  # 推送 / 心跳的单次请求超时（秒）。跨区部署（互联网区 → 计算区）链路慢时调大；
+  # 调得太大会让一轮心跳拖住整个循环（心跳是串行探的）。
+  - name: CRED_PUSH_TIMEOUT_SECONDS
+    value: '10'
+
+  # 时区（只影响容器内的本地时间戳：日志、心跳记录、页面展示）
   - name: TZ
     value: Asia/Shanghai
+  # 时区数据落点：localize 阶段把宿主当前时区的 zone 文件复制到这里（容器只读挂载）。
+  # 为什么不像其它栈那样直接挂宿主 /etc/localtime：见 scripts/init-timezone.sh 顶部。
+  - name: TZ_RUNTIME_DIR
+    value: ./configs/runtime/tz

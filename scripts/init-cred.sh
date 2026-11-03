@@ -47,6 +47,7 @@ BREAK_GLASS_TTL="${CRED_BREAK_GLASS_TTL_SECONDS:-7776000}"
 OVERLAP="${CRED_OVERLAP_SECONDS:-300}"
 ONBOARDING_TTL="${CRED_ONBOARDING_TTL_SECONDS:-900}"
 PEER_CERT_TTL="${CRED_PEER_CERT_TTL_SECONDS:-7776000}"
+PUSH_TIMEOUT="${CRED_PUSH_TIMEOUT_SECONDS:-10}"
 HEARTBEAT="${CRED_HEARTBEAT_SECONDS:-30}"
 # peer 清单不进渲染值：它是 `state/peers.json` 的种子，由 `scripts/gen-pki.sh` 写成
 # `identity/cred/onboarding/<name>/peer.json`，cred 启动时导入一次。
@@ -118,7 +119,8 @@ write_json "${CONFIG_DIR}/wist-cred.value.json" cat <<EOF
   "overlap_seconds": ${OVERLAP},
   "onboarding_ttl_seconds": ${ONBOARDING_TTL},
   "peer_cert_ttl_seconds": ${PEER_CERT_TTL},
-  "heartbeat_seconds": ${HEARTBEAT}
+  "heartbeat_seconds": ${HEARTBEAT},
+  "push_timeout_seconds": ${PUSH_TIMEOUT}
 }
 EOF
 
