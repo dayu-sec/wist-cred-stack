@@ -71,6 +71,23 @@ gops run start
   （生成的瞬间就进了终端 / CI 日志）；
 - 口令不进 `sys/setting/vars.yml`、不进 `.env`、不进渲染值。
 
+#### 怎么“输入”这个口令
+
+本栈的入口认证是 **HTTP Basic**，用户名固定 `admin` —— 没有登录页、没有 token 输入框（D17：
+不建本机用户表，将来接用户中心 / 钉钉 OIDC 时换入口这一层）。所以“输入”只有两个地方：
+
+| 调用方 | 怎么带 |
+|---|---|
+| 浏览器（人） | 打开 `https://<域名>/` 就弹系统认证框，用户名 `admin`。**首屏之前**就验（`auth_basic` 在 server 级），不是等页面加载完再 401 |
+| 脚本 / curl（机器或排查） | `curl -u "admin:$(gops sec get --show cred_web_password)" https://<域名>/api/v1/credentials` |
+
+两条边界：
+
+- `/onboarding/`（取接入脚本、登记）**故意不要 basic auth** —— 拿它的是机器，授权靠 URL 里那张
+  一次性券 + cred 侧的 peer IP 白名单；
+- basic auth 没有“登出”：换人要么关浏览器，要么用无痕窗口。真要做注销/审计到人，
+  等 D17 的 OIDC 那一步。
+
 ### 演示用的验证方（可选）
 
 想在不接任何真实系统的情况下验证「推送 / 心跳 / 撤销」整条链路，开一个 demo peer：

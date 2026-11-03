@@ -23,6 +23,9 @@
     localize 直接失败，并打印补密钥的命令。口令不再经过终端与 CI 日志。
   - 换口令 = 改密钥 + `gops sys localize`；同口令（同 salt）不重写 htpasswd（幂等，不无端重载入口）。
   - `.wist` 进 `sys-prj.yml` 的 `ignore` / `protect`：密钥不进交付包，升级也不碰。
+- **入口 basic auth 提到 server 级**（`sys/configs/web/nginx.conf.tpl`）：以前只护 `/api/`，
+  页面先加载出来、第一次 API 调用才弹认证框，用户取消后就是一片 401（看着像“没有登录入口”）。
+  现在首屏 `/` 也验；`/onboarding/` 仍 `auth_basic off`（拿它的是机器，靠一次性券授权）。
 
 ## [0.1.1-alpha] - 2026-11-03
 

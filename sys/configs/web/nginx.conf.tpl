@@ -21,15 +21,20 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # 入口认证：**整站**都要，包括首屏 `/`。
+    # 只放在 `/api/` 上会变成：页面先加载出来，第一次 API 调用才弹窗 ——
+    # 用户取消后页面就是一片 401，看着像"没有登录入口"。
+    # 口令来自密钥文件（.wist/sec-value.yml 的 cred_web_password），由 init-cred.sh 算成 apr1。
+    auth_basic           "wist-cred";
+    auth_basic_user_file /etc/nginx/htpasswd;
+
     # 静态资源 + SPA 深链回退：找不到实体文件就交给前端路由。
     location / {
         try_files $uri $uri/ /index.html;
     }
 
     location /api/ {
-        # 阶段一的"人是谁"：由入口认证，nginx 只把结果写进注入头。
-        auth_basic           "wist-cred";
-        auth_basic_user_file /etc/nginx/htpasswd;
+        # 认证在上面（server 级）已经做了，这里不再重复声明。
 
         # 明文 HTTP 到 cred（容器内 8443）；cred 不对宿主发布端口。
         proxy_pass         http://{{cred_ip}}:8443;
