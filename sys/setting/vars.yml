@@ -9,8 +9,9 @@
 #
 # 说明：
 #   - 只有 `system:` 段的变量会进入 resolved_vars.yml 并最终导出到 .env；
-#   - 本服务**目前不持任何密钥**：凭据明文只在创建响应里出现一次，库里只有 sha256 摘要。
-#     后续 P3 推送要 CA-I 客户端证书时，再用 `.wist/sec-value.yml`（`sys-prj.yml` 的 `secrets:` 已指路）。
+#   - **密钥不走这里**：入口 basic auth 口令在栈根 `.wist/sec-value.yml`（`cred_web_password`），
+#     localize 时由 `scripts/init-cred.sh` 读出来只写 apr1 摘要。
+#     签发的 token 明文只在创建响应出现一次，库里只有 sha256 摘要（它不在本栈的文件里）。
 system:
   # 镜像源前缀：国内走腾讯云 TCR，境外用 ghcr.io/dayu-sec
   # 产品默认是 ghcr；**现场值写 ops-prj 的 values/<系统名>/sys_value.yml**，不要改这里。
@@ -63,7 +64,7 @@ system:
   # 入口 nginx 站点配置（localize 渲染物）
   - name: WEB_NGINX_CONF
     value: ./configs/web/nginx.conf
-  # 阶段一的入口认证：basic auth 的 htpasswd（由 scripts/init-cred.sh 按缺补齐）
+  # 入口认证：basic auth 的 htpasswd（由 scripts/init-cred.sh 从密钥文件生成）
   - name: WEB_HTPASSWD
     value: ./configs/web/htpasswd
 

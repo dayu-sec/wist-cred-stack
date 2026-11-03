@@ -9,15 +9,16 @@
 #   identity/cred/server.{crt,key}         入口 nginx 的站点身份（自签；缺失即生成）
 #   configs/cred/wist-cred.value.json      cred 配置模板的渲染值
 #   configs/web/nginx.value.json           入口 nginx 的渲染值
-#   configs/web/htpasswd                   阶段一的入口认证（缺失即补一个 bootstrap 用户）
+#   configs/web/htpasswd                   入口 basic auth（由密钥文件的 cred_web_password 生成）
 #
 # 环境（gops 把合并后的系统变量以环境变量注入）：
 #   CRED_IP / WEB_IP / CRED_MAX_TTL_SECONDS / CRED_BREAK_GLASS_TTL_SECONDS /
 #   CRED_OVERLAP_SECONDS / CRED_ONBOARDING_TTL_SECONDS / CRED_PEER_CERT_TTL_SECONDS /
 #   CRED_HEARTBEAT_SECONDS / WEB_HTPASSWD
-#   CRED_BOOTSTRAP_PASSWORD  可选：指定 bootstrap 账号口令（缺省随机生成并打印一次）
 #
-# 本服务**不持密钥**：凭据明文只在创建响应出现一次，落盘只有 sha256 摘要。
+# 本服务**不持凭据明文**：签发的 token 只在创建响应出现一次，库里只有 sha256 摘要。
+# 本站唯一的口令是入口 basic auth，它**只**来自栈根密钥文件
+# `.wist/sec-value.yml`（`cred_web_password`），脚本不回显、不进配置、不进 .env。
 set -euo pipefail
 
 CONFIG_DIR="${1:-configs/cred}"
@@ -104,21 +105,77 @@ write_json "${WEB_CONFIG_DIR}/nginx.value.json" cat <<EOF
 }
 EOF
 
-# ④ 阶段一的入口认证
+# ④ 入口认证（basic auth）
+#
+# 口令的**唯一来源**是栈根密钥文件（`sys-prj.yml: secrets.file`）：
+#
+#   .wist/sec-value.yml   →   cred_web_password: "..."
+#
+# 这里只把它算成 apr1 摘要写进 `configs/web/htpasswd`：口令不进配置、不进 .env、不回显。
+# 换口令 = 改密钥 + 重跑 localize（不需要删 htpasswd）。
+#
+# **缺密钥就让 localize 失败**，不随机生成：脚本一生成，口令就落进终端 / CI 日志，
+# 而且“现场有个没人知道来历的口令”比“起不来”更难查。补密钥的命令见 README「起栈」。
+
+# 密钥读取统一走 gops：路径解析、文件模式、格式、值类型都由它校验，
+# 不在这里重复实现一遍（与 center / gateway 的 `scripts/lib/sec.sh` 同一口径）。
+#   · `gops sec` 以**当前目录**的系统清单为准 → 显式 cd 到栈根；
+#   · 成功时屏蔽 stderr（每次调用会打一行版本横幅），键缺失返回空串；
+#   · 文件本身不合格（不存在 / 权限过宽）→ 打错误信息并返回非零。
+sec_get() {
+  local key="$1" out
+  if ! command -v gops >/dev/null 2>&1; then
+    echo "错误：读取密钥 \`${key}\` 需要 gops（>= 2.8）；请确认 gops 在 PATH 上" >&2
+    return 1
+  fi
+  if ! ( cd "${STACK_ROOT}" && gops sec list --json >/dev/null ); then
+    echo "错误：密钥文件不可用（sys-prj.yml: secrets.file = .wist/sec-value.yml）" >&2
+    return 1
+  fi
+  out="$( cd "${STACK_ROOT}" && gops sec get --show "${key}" 2>/dev/null )" || out=""
+  printf '%s' "${out}"
+}
+
+# 同一个口令 + 同一个 salt 算出来的 apr1 是确定的：先比对，没变就不重写文件
+# （重写会改 mtime，触发容器重载入口配置）。
+apr1_matches() {
+  local password="$1" line="$2" salt
+  salt="$(printf '%s' "${line}" | awk -F'\\$' '{print $3}')"
+  [[ -n "${salt}" ]] || return 1
+  [[ "$(openssl passwd -apr1 -salt "${salt}" "${password}")" == "${line#admin:}" ]]
+}
+
+password="$(sec_get cred_web_password)" || exit 1
+if [[ -z "${password}" ]]; then
+  cat >&2 <<'MSG'
+错误：入口口令没有来源。
+
+  .wist/sec-value.yml 里缺 cred_web_password。补上（口令就是下面生成的那串）：
+
+    mkdir -p .wist && chmod 700 .wist
+    printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
+    chmod 600 .wist/sec-value.yml
+
+  然后重跑 gops sys localize（登录：用户名 admin，口令同上）。
+MSG
+  exit 1
+fi
+
+current=""
 if [[ -f "${WEB_HTPASSWD}" ]]; then
-  note "htpasswd 已存在，跳过：${WEB_HTPASSWD}"
+  current="$(sed -n 's/^admin://p' "${WEB_HTPASSWD}" | head -n 1)"
+fi
+if [[ -n "${current}" ]] && apr1_matches "${password}" "${current}"; then
+  note "入口口令与密钥文件一致，跳过：${WEB_HTPASSWD}"
 else
-  password="${CRED_BOOTSTRAP_PASSWORD:-$(openssl rand -hex 12)}"
   if ! hash="$(openssl passwd -apr1 "${password}")"; then
     echo "生成 htpasswd 失败（需要 openssl passwd -apr1）" >&2
     exit 1
   fi
-  printf 'admin:%s\n' "${hash}" >"${WEB_HTPASSWD}"
-  chmod 640 "${WEB_HTPASSWD}"
-  note "已创建 bootstrap 账号（口令只显示这一次）："
-  echo
-  echo "    用户名: admin"
-  echo "    口令:   ${password}"
-  echo
-  note "换口令：删掉 ${WEB_HTPASSWD} 后重新 localize。"
+  # 先写临时文件再替换：nginx 可能正读着，不留半截文件。
+  tmp="$(mktemp "${WEB_HTPASSWD}.XXXXXX")"
+  printf 'admin:%s\n' "${hash}" >"${tmp}"
+  chmod 640 "${tmp}"
+  mv -f "${tmp}" "${WEB_HTPASSWD}"
+  note "已按密钥文件写入入口口令（用户名 admin，不回显）：${WEB_HTPASSWD}"
 fi

@@ -14,6 +14,16 @@
   compose 的 `peer-demo` 服务直接拉起来 —— **不需要走一键接入**（那是给真机器用的）。
   默认关闭；开的时候两个变量一起写（`CRED_DEMO_PEER` + `COMPOSE_PROFILES`）。
 
+### Changed
+
+- **入口口令改为只存栈根密钥文件** `.wist/sec-value.yml` 的 `cred_web_password`
+  （与 `wist-center-stack` / `wist-gateway-stack` 同一口径）：`scripts/init-cred.sh` 在 localize 时
+  用 `gops sec get` 读它，只写 `configs/web/htpasswd` 的 apr1 摘要。
+  - **行为变化**：不再“缺密钥就随机生成并打印一次”，改为 **fail-closed** —— 缺文件 / 缺键时
+    localize 直接失败，并打印补密钥的命令。口令不再经过终端与 CI 日志。
+  - 换口令 = 改密钥 + `gops sys localize`；同口令（同 salt）不重写 htpasswd（幂等，不无端重载入口）。
+  - `.wist` 进 `sys-prj.yml` 的 `ignore` / `protect`：密钥不进交付包，升级也不碰。
+
 ## [0.1.1-alpha] - 2026-11-03
 
 ### 变更

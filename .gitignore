@@ -21,7 +21,7 @@ values/
 # 交付锁（`gops sys package` 生成）
 /deliver.lock
 
-# 密钥目录（本服务目前不持密钥，保留约定）
+# 密钥目录（入口 basic auth 口令：`cred_web_password`）
 /.wist/
 /.galaxy/
 

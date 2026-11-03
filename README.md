@@ -31,11 +31,17 @@ TLS 在 web 终止。两者在专用网段（默认 `172.28.90.0/24`）里钉死
 #      WEB_DOMAIN: cred.<zone>
 #      WEB_BIND_IP: <内网网卡或 127.0.0.1>
 
-# 2) 变量解析 + 渲染（localize 会跑 scripts/init-cred.sh，并在缺失时打印 bootstrap 口令）
+# 2) 入口口令（**运维提供**，只在密钥文件里）
+mkdir -p .wist && chmod 700 .wist
+printf 'cred_web_password: "%s"\n' "$(openssl rand -hex 12)" > .wist/sec-value.yml
+chmod 600 .wist/sec-value.yml
+# → 登录用户名 admin，口令就是上面那串
+
+# 3) 变量解析 + 渲染（localize 会跑 scripts/init-cred.sh，用上面的密钥写 htpasswd）
 gops sys update
 gops sys localize
 
-# 3) 起
+# 4) 起
 gops run start
 ```
 
@@ -46,7 +52,24 @@ gops run start
 | `identity/cred/server.{crt,key}` | 入口 nginx 的站点身份（自签；换正式证书直接覆盖文件） |
 | `configs/cred/wist-cred.toml` | cred 运行配置（由 `sys/configs/cred/wist-cred.toml.tpl` 渲染） |
 | `configs/web/nginx.conf` | 入口配置（由 `sys/configs/web/nginx.conf.tpl` 渲染） |
-| `configs/web/htpasswd` | 阶段一的入口认证，`admin` + 随机口令（**只打印一次**） |
+| `configs/web/htpasswd` | 入口 basic auth 的 apr1 摘要，**由密钥文件推导**（不含明文） |
+
+### 入口口令：只存 `.wist/sec-value.yml`
+
+与服务端签发的 token 无关 —— 它管的是**谁能打开这个页面**（阶段一的人身份）。
+口径与 `wist-center-stack` / `wist-gateway-stack` 一致：
+
+```text
+.wist/sec-value.yml          # 0600、不入库、不进交付包（sys-prj.yml 的 ignore/protect）
+  cred_web_password: "..."   # → SEC_CRED_WEB_PASSWORD
+        │
+        └─ gops sys localize ─→ scripts/init-cred.sh ─→ configs/web/htpasswd（apr1）
+```
+
+- **换口令**：只改密钥文件 + `gops sys localize`（不需要删 htpasswd；内容没变就不重写）；
+- **缺密钥 = 起不来**：localize 直接失败并打印补密钥的命令 —— 不随机生成、不打印口令
+  （生成的瞬间就进了终端 / CI 日志）；
+- 口令不进 `sys/setting/vars.yml`、不进 `.env`、不进渲染值。
 
 ### 演示用的验证方（可选）
 
