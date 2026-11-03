@@ -55,7 +55,10 @@ server {
 
         proxy_pass         http://{{cred_ip}}:8443;
         proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
+        # `$http_host` 而不是 `$host`：后者**不带端口**，而接入脚本里的登记地址是 cred
+        # 按 Host 头拼出来的绝对地址 —— 用 `$host` 会拼成 `https://域名/enroll/...`（443），
+        # 机器就登记到别的端口上。（`public_base_url` 配了时以配置为准，这里是兜底。）
+        proxy_set_header   Host              $http_host;
         proxy_set_header   X-Real-IP         $remote_addr;
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;

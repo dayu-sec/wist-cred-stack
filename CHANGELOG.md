@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.3-alpha] - 2026-11-03
+
+### 修复：接入登记打到 443（脚本里的地址丢端口）
+
+- `CRED_IMAGE_TAG` → **`v0.4.2-alpha`**，`CRED_WEB_IMAGE_TAG` → **`v0.2.2-alpha`**。
+- `sys/configs/web/nginx.conf.tpl`：`/enroll/` 的 `Host` 改为 `$http_host`（`$host` **不带端口**）。
+  接入脚本里的登记地址是 cred 按 Host 拼的绝对地址，`$host` 会让它变成 `https://域名/enroll/…`，
+  机器把 CSR 打到 443，拿到空体 404。
+- `scripts/init-cred.sh` + `wist-cred.toml.tpl`：渲染 `[server].public_base_url`
+  （`https://WEB_DOMAIN[:WEB_HOST_PORT]`，443 不写），配置优先于请求头。
+
+### 升级注意
+
+- 升完重新生成一条接入命令（旧券仍有效，但**旧脚本里的地址是错的**，重取即可）。
+
 ## [0.4.2-alpha] - 2026-11-03
 
 ### 修复：cred 容器起不来（`signing.key` 没挂）

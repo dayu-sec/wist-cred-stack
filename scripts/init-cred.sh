@@ -33,6 +33,15 @@ fi
 
 CRED_IP="${CRED_IP:-172.28.90.10}"
 WEB_IP="${WEB_IP:-172.28.90.11}"
+
+# 对外基址：接入脚本里的“交 CSR”地址由 cred 拼**绝对地址**，而入口反代的 `$host` 不带端口。
+# 所以这里把端口明确告诉它（443 不写，其余照写）。
+PUBLIC_PORT="${WEB_HOST_PORT:-443}"
+if [[ "${PUBLIC_PORT}" == "443" ]]; then
+  PUBLIC_BASE="https://${DOMAIN}"
+else
+  PUBLIC_BASE="https://${DOMAIN}:${PUBLIC_PORT}"
+fi
 MAX_TTL="${CRED_MAX_TTL_SECONDS:-2592000}"
 BREAK_GLASS_TTL="${CRED_BREAK_GLASS_TTL_SECONDS:-7776000}"
 OVERLAP="${CRED_OVERLAP_SECONDS:-300}"
@@ -103,6 +112,7 @@ write_json "${CONFIG_DIR}/wist-cred.value.json" cat <<EOF
 {
   "cred_ip": "${CRED_IP}",
   "web_ip": "${WEB_IP}",
+  "public_base_url": "${PUBLIC_BASE}",
   "max_ttl_seconds": ${MAX_TTL},
   "break_glass_max_ttl_seconds": ${BREAK_GLASS_TTL},
   "overlap_seconds": ${OVERLAP},

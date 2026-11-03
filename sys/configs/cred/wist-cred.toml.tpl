@@ -23,6 +23,9 @@ mode = "token"
 # 只写占位符：明文绝不落到这份渲染物里（它会进包、进备份、谁都能 cat）。
 admin_password = "${SEC_CRED_WEB_PASSWORD}"
 trusted_peers = ["{{web_ip}}/32"]
+# 对外基址（带端口）：接入脚本里的“交 CSR”地址由 cred 拼**绝对地址**，
+# 而 nginx 默认的 `$host` 不带端口 —— 不配就会把 `:4444` 弄丢，登记打到 443 上去。
+public_base_url = "{{public_base_url}}"
 
 [storage]
 # 只存 sha256 摘要；目录由 compose 挂载，可写。
