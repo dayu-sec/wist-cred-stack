@@ -2,7 +2,7 @@ system:
 - name: WIST_SPC
   value: ghcr.io/dayu-sec
 - name: CRED_IMAGE_TAG
-  value: v0.4.9-alpha
+  value: v0.4.11-alpha
 - name: CRED_WEB_IMAGE_TAG
   value: v0.2.6-alpha
 - name: CRED_DEMO_PEER

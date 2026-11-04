@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.13-alpha] - 2026-11-04
+
+### 变更：跟版 cred 0.4.11（接入链路补端到端测试）
+
+- `CRED_IMAGE_TAG` → **`v0.4.11-alpha`**（前端不动，仍 `v0.2.6-alpha`；
+  demo peer 是同包 `-example`，跟着一起动）。
+- cred 0.4.11 把「接入脚本」纳入**真跑**的端到端测试：起真 CA + 真 HTTP 服务，
+  `curl` 取 `join.sh`、`bash` 执行，再核对落盘材料与 `cred.toml`。
+- 修掉一处**静默失败**：bash 3.2 在有 EXIT trap 时，`set -u` 中途中断会以
+  **退出码 0** 收场（脚本崩了却报成功）。现在用显式完成标记兜底，
+  只有正常结束 / `die` / `--help` 才允许 0。
+- 无需改现场配置；升级只换镜像 tag。
+
 ## [0.4.7-alpha] - 2026-11-03
 
 ### 变更：镜像源变量改名 `CRED_REGISTRY` → `WIST_SPC`
