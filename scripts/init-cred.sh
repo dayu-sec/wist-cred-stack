@@ -62,6 +62,24 @@ HEARTBEAT="${CRED_HEARTBEAT_SECONDS:-30}"
 # peer 清单不进渲染值：它是 `state/peers.json` 的种子，由 `scripts/gen-pki.sh` 写成
 # `identity/cred/onboarding/<name>/peer.json`，cred 启动时导入一次。
 # 之后新增/修改都走页面（`POST /api/v1/peers`），不再改 vars。
+#
+# 但**材料目录**进渲染值：它取决于对方栈的目录布局，猜不出来（`identity/center/cred`
+# 这种名字和 peer 名对不上的很常见），所以由本栈用 `CRED_PEER_DIRS` 显式声明。
+# 格式守卫在这里做：写成 `wist-center`（忘了 `=目录`）时 localize 就失败，
+# 而不是等到 cred 启动才报。
+if [[ -n "${CRED_PEER_DIRS:-}" ]]; then
+  IFS=',' read -r -a peer_dir_items <<< "${CRED_PEER_DIRS}"
+  for item in "${peer_dir_items[@]}"; do
+    item="${item%"${item##*[![:space:]]}"}"
+    item="${item#"${item%%[![:space:]]*}"}"
+    [[ -z "${item}" ]] && continue
+    if [[ "${item}" != *=* || "${item%%=*}" == "" || "${item#*=}" == "" ]]; then
+      echo "错误：CRED_PEER_DIRS 的项必须写成 name=目录（现在是 '${item}'）" >&2
+      echo "     例：CRED_PEER_DIRS='wist-center=./identity/center/cred'" >&2
+      exit 2
+    fi
+  done
+fi
 
 # web 的配置目录固定落栈根，避免脚本从别的工作目录被调用时写错地方。
 WEB_CONFIG_DIR="${STACK_ROOT}/configs/web"
@@ -130,7 +148,8 @@ write_json "${CONFIG_DIR}/wist-cred.value.json" cat <<EOF
   "onboarding_ttl_seconds": ${ONBOARDING_TTL},
   "peer_cert_ttl_seconds": ${PEER_CERT_TTL},
   "heartbeat_seconds": ${HEARTBEAT},
-  "push_timeout_seconds": ${PUSH_TIMEOUT}
+  "push_timeout_seconds": ${PUSH_TIMEOUT},
+  "peer_dirs": "${CRED_PEER_DIRS:-}"
 }
 EOF
 

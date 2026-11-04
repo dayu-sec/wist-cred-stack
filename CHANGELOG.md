@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.4.16-alpha] - 2026-11-04
+
+### 新增：`CRED_PEER_DIRS` —— 由本栈声明各认证系统的材料目录
+
+接入命令在**对方的栈**里跑，落点取决于那个栈的目录布局（`identity/center/cred` 这种
+名字和 peer 名对不上的很常见），猜不出来 —— 猜错就落在消费方不看的地方，而券已经烧了。
+
+```yaml
+CRED_PEER_DIRS: wist-center=./identity/center/cred,wist-ingest=./identity/ingest/cred
+```
+
+- 渲染进 `cred.toml` 的 `[onboarding] peer_dirs`（cred 0.4.16 开始支持）；
+- cred 启动时**只补空**地填进注册表 —— 页面上存过的值优先，重启不会改回去；
+- 格式错（忘写 `=目录` / 名字空 / 重复 / 含换行）在 **`gops sys localize` 阶段**就失败；
+- 不声明 = 保持旧行为（脚本自己取默认）。
+
+新增 `dev/tests/peer-dirs.test.sh`（9 项）：合法值进渲染值、四种坏格式被拒、
+空值渲染为空串、value.json 仍是合法 JSON、模板确实用上了占位符。
+
+> 升级注意：`CRED_IMAGE_TAG` 必须与它一起升（`peer_dirs` 对旧版 cred 是未知字段，会拒启）。
+
+### 变更：跟版 cred 0.4.16（材料目录归一 + 收数地址归一化）
+
+- `CRED_IMAGE_TAG` → **`v0.4.16-alpha`**，`CRED_WEB_IMAGE_TAG` 仍 `v0.2.8-alpha`。
+- **接入命令自带 `--dir`**：页面里从下拉选（已用过的排前面）、存为认证系统的属性，
+  签发时同时烘进脚本 —— `curl … | bash` 裸跑也能落对位置。
+- **收数地址归一化**（cred 0.4.12/0.4.13）：只填 origin 时心跳是绿的，
+  但推送是 `POST` 到地址**原样** → 每条都 404。现在四条写入口自动补收数路径，
+  旧存储启动时迁移；推送 404 的报错会点名原因。
+
 ## [0.4.15-alpha] - 2026-11-04
 
 ### 变更：跟版 cred 0.4.15 / cred-web 0.2.8（材料目录成为认证系统的属性）
