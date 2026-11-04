@@ -108,10 +108,12 @@ else
   ok "跳过（没有 python3）"
 fi
 
-echo "⑤ 模板真的用上了这个渲染值"
-grep -q '^peer_dirs = "{{peer_dirs}}"$' \
+echo "⑤ 模板真的用上了这个渲染值，而且是**不过 HTML 转义**的那种"
+# `{{x}}` 会把 `=` 转成 `&#x3D;`（handlebars 默认 HTML 转义）—— 值里带 `=` 时
+# 渲染出来就是错的，而且看起来“很像是配了”。实测踩过，所以连写法一起钉。
+grep -q '^peer_dirs = "{{{peer_dirs}}}"$' \
   "${STACK}/sys/configs/cred/wist-cred.toml.tpl" \
-  && ok "模板有 {{peer_dirs}}" || no "模板缺少 peer_dirs 占位符"
+  && ok "模板用 {{{peer_dirs}}}（原始值）" || no "模板必须用三花括号，否则 '=' 被转义"
 
 echo
 printf '通过 %d，失败 %d\n' "${pass}" "${fail}"

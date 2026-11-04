@@ -67,7 +67,7 @@ ca_key = "/wist-cred/identity/ca-s.key"
 client_ca = "/wist-cred/identity/ca-i.crt"
 # 本栈声明的「认证系统 → 材料目录」（`CRED_PEER_DIRS`）：接入命令据此预填 `--dir`。
 # 格式：逗号分隔的 `name=目录`；只补空 —— 页面里存过的值优先。
-peer_dirs = "{{peer_dirs}}"
+peer_dirs = "{{{peer_dirs}}}"
 # 签给 X 的服务器证书有效期（90d）。
 peer_cert_ttl_seconds = {{peer_cert_ttl_seconds}}
 # 心跳间隔：周期性地用 mTLS 探每个认证系统的 /healthz。

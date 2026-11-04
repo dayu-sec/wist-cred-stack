@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.17-alpha] - 2026-11-04
+
+### 修复：`peer_dirs` 渲染时被 HTML 转义（`=` → `&#x3D;`）
+
+0.4.16 的模板写成了 `{{peer_dirs}}`。handlebars 的 `{{ }}` **默认 HTML 转义**，
+于是 `/` 还好、`=` 直接变成 `&#x3D;`：
+
+```toml
+peer_dirs = "wist-center&#x3D;./identity/center/cred"   # 错
+```
+
+看起来“很像配了”，实际 cred 会把 `wist-center&#x3D;./identity/center/cred` 当成一个名字去解析。
+
+- 模板改成 `{{{peer_dirs}}}`（与 `wist-center-stack` 的 nginx 模板同一个写法：原始值）。
+- `dev/tests/peer-dirs.test.sh` 从“模板里有占位符”改成**连写法一起钉**：必须是三花括号，
+  单花括号直接红 —— 这类转义错用肉眼看看不出来。
+
+镜像不变（仍 `v0.4.16-alpha`）。
+
 ## [0.4.16-alpha] - 2026-11-04
 
 ### 新增：`CRED_PEER_DIRS` —— 由本栈声明各认证系统的材料目录
