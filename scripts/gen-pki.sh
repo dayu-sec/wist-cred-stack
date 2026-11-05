@@ -170,6 +170,15 @@ for spec in ${PEER_SPECS}; do
     exit 2
   fi
 
+  # 没有收数地址就不能推送，也不能被探活 —— 注册表里会显示成 `no_endpoint`，
+  # 接入脚本会拒跑（要手工分发就显式 `--manual`）。部署时就把它说出来，
+  # 不留到接入那一刻才发现“登记成功、却什么都不动”。
+  if [[ -z "${endpoint}" ]]; then
+    echo "  ⚠ ${name}（${host}）没有收数地址：将显示为 no_endpoint（不探活、不推送）" >&2
+    echo "    需要推送请写成 ${name}=${host}=https://${host}:<端口>/api/v1/internal/credentials" >&2
+    echo "    确实只做人工分发：接入时显式加 --manual。" >&2
+  fi
+
   dest="${IDENTITY_DIR}/onboarding/${name}"
 
   # 迁移：旧版遗留的 X 私钥副本（曾经被塞进一次性链接）。删掉它。

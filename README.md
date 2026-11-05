@@ -182,7 +182,7 @@ dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 
 | 项 | 状态 |
 |---|---|
 | 入口认证 | 在**产品里**：页面登录框（`wist-cred-web`）→ 口令带在 `Authorization: Bearer` 上 → `wist-cred` 自己验（`mode = "token"`，配置只存 sha256）。nginx 只做 TLS / 静态 / 反代；将来接用户中心 / 钉钉只换 cred 的认证分支（`mode = "oidc"`），页面不动 |
-| 签发 → 验证方推送 | **已实现**：签发后按认证系统的收数地址推送摘要（mTLS，双向证书），失败可重推；没配地址的系统退化为手工分发 |
+| 签发 → 验证方推送 | **已实现**：签发后按认证系统的收数地址推送摘要（mTLS，双向证书），失败可重推；**没地址的系统显示为 `no_endpoint`**（不探、不推，接入脚本默认拒跑，只做人工分发需显式 `--manual`） |
 | 存储 | 单文件 JSON（`configs/cred/state/credentials.db`），无数据库 |
 | 密钥 | 页面口令只在栈根 `.wist/sec-value.yml`（`cred_web_password`，配置里只展开成 sha256）；推送用的 CA-I 客户端证书在 `identity/cred/`（不进包） |
 

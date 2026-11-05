@@ -84,8 +84,10 @@ system:
   # cred 启动时**导入一次**到 `state/peers.json`；之后新增/改地址都走页面，不用重启。
   #
   # 第三个字段（`=https://…`）是该系统的收数地址：
-  #   · 不给 = 只做手工分发（不推送、不心跳）；
-  #   · 给了 = cred 把凭据摘要推过去，并按 heartbeat 周期探它的 /healthz。
+  #   · 给了 = cred 把凭据摘要推过去，并按 heartbeat 周期探它的 /healthz；
+  #   · 不给 = 注册表里显示为 `no_endpoint`（不探、不推），接入脚本也会拒跑 ——
+  #     确实只做人工分发时，在对方机器上显式加 `--manual`。
+  # 没有地址不是“还没探”，而是一个**不会自愈**的状态（以前它显示成“未探测”，把错藏起来了）。
   - name: CRED_PKI_PEERS
     value: wist-ingest=ingest.internal
 
