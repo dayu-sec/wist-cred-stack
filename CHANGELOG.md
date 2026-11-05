@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.4-alpha] - 2026-11-06
+
+### 跟版：cred 0.6.3-alpha（删除了改接入落点的接口）
+
+- `CRED_IMAGE_TAG` → `v0.6.3-alpha`；`CRED_WEB_IMAGE_TAG` 保持 `v0.4.2-alpha`
+  —— 删掉的 `POST /api/v1/peers/{name}/setup` 正是页面 0.4.2 已经不再调的那条，
+  两边这一版是配好的。
+- 本栈不依赖它：接入落点一直是由**种子 / `CRED_PEER_DIRS`** 给的（`gen-pki.sh` 写
+  `identity/cred/onboarding/<name>/peer.json`），所以没有脚本要改。
+- 升级注意：如果有自定义脚本在 curl 这条路由（改材料目录 / `config_path` / `restart_cmd`），
+  它会开始拿 404 —— 把值写进种子里的 `peer.json`，或在新建时给（新建接口不收这三个字段，
+  只能靠种子）。
+
 ## [0.6.3-alpha] - 2026-11-06
 
 ### 新增：把部署栈版本交给 cred（页面右上角的三个版本号）
