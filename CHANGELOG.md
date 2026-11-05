@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.2-alpha] - 2026-11-05
+
+### 跟版：cred-web 0.4.0-alpha
+
+- `CRED_WEB_IMAGE_TAG` → `v0.4.0-alpha`：接入面板把**券单独显示并复制**，
+  `join.sh` 命令收进可折叠区（自注册才是主路径）。
+- `CRED_IMAGE_TAG` 不动（`v0.6.1-alpha`）：本版不需要 cred 一起发 ——
+  web 从 `/enroll/{券}/join.sh` 里取券，不依赖新字段。
+
 ## [0.6.1-alpha] - 2026-11-05
 
 ### 跟版：cred 0.6.1-alpha
