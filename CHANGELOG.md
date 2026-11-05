@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.18-alpha] - 2026-11-05
+
+### 跟版：cred 0.4.17 / cred-web 0.2.9（没有收数地址不再是静默的 unknown）
+
+- `CRED_IMAGE_TAG` → `v0.4.17-alpha`：新增 `no_endpoint` 状态，接入脚本不再默认退化。
+- `CRED_WEB_IMAGE_TAG` → `v0.2.9-alpha`：页面红标「缺收数地址」，可就地补地址。
+- `scripts/gen-pki.sh`：`CRED_PKI_PEERS` 里没写第三个字段（`=https://…`）时，
+  部署阶段就告警并给出写法；不要把“没地址”留到接入那一刻才发现。
+- `.env.example` 跟 `sys/merged_vars.yml` 同步（两个 tag）。
+
+升级注意：升级后，没有收数地址的认证系统会从「未探测」变成红标「缺收数地址」。
+这是同一个事实被看见了，不是新故障——在页面上补上地址（`POST /api/v1/peers/{name}/endpoint`）即可，
+不用重新接入。
+
 ## [0.4.17-alpha] - 2026-11-04
 
 ### 修复：`peer_dirs` 渲染时被 HTML 转义（`=` → `&#x3D;`）
