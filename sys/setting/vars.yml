@@ -19,9 +19,9 @@ system:
   - name: WIST_SPC
     value: ghcr.io/dayu-sec
   - name: CRED_IMAGE_TAG
-    value: v0.4.17-alpha
+    value: v0.5.0-alpha
   - name: CRED_WEB_IMAGE_TAG
-    value: v0.2.10-alpha
+    value: v0.3.0-alpha
   # demo peer 的镜像 tag 是 `CRED_IMAGE_TAG` + `-example`（同一包名），不单列变量。
 
   # ── 演示用验证方（可选）──
@@ -80,16 +80,16 @@ system:
   # ── 认证系统（验证方 X）────────────────────────────────────
   #
   # 注意：**这不是推送目标的配置项**。这里只是 "部署态种子"：
-  # `scripts/gen-pki.sh` 按 `name=host` 写出 `identity/cred/onboarding/<name>/peer.json`，
+  # `scripts/gen-pki.sh` 按 `name=host=地址` 写出 `identity/cred/onboarding/<name>/peer.json`，
   # cred 启动时**导入一次**到 `state/peers.json`；之后新增/改地址都走页面，不用重启。
   #
-  # 第三个字段（`=https://…`）是该系统的收数地址：
-  #   · 给了 = cred 把凭据摘要推过去，并按 heartbeat 周期探它的 /healthz；
-  #   · 不给 = 注册表里显示为 `no_endpoint`（不探、不推），接入脚本也会拒跑 ——
-  #     确实只做人工分发时，在对方机器上显式加 `--manual`。
-  # 没有地址不是“还没探”，而是一个**不会自愈**的状态（以前它显示成“未探测”，把错藏起来了）。
+  # 第三个字段（`=https://…`）是该系统的**收数地址，必填**：
+  #   · cred 把凭据摘要推过去，并按 heartbeat 周期探它的 /healthz；
+  #   · 少了它 gen-pki.sh 直接报错 —— 没地址的系统推不了、探不了，**也不允许接入**
+  #     （cred 会回 endpoint_required）。地址必须是真的，不再有“先不填”这个选项。
+  # 地址里的主机名要与 `host` 一致（证书 SAN 得对得上握手地址）。
   - name: CRED_PKI_PEERS
-    value: wist-ingest=ingest.internal
+    value: wist-ingest=ingest.internal=https://ingest.internal:19443/api/v1/internal/credentials
 
   # ── 各认证系统的**材料目录**（部署栈自己声明）──────────────────────
   #

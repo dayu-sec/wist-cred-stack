@@ -5,8 +5,8 @@
 #   scripts/gen-pki.sh [identity_dir] [name=host ...]
 #     scripts/gen-pki.sh identity/cred wist-ingest=ingest.internal wist-center=center.internal
 #
-# `CRED_PKI_PEERS` 里每项还可以带第三个字段（推送 endpoint），本脚本**只看前两个**，
-# 推送地址由 init-cred.sh 读同一份变量抽出来。
+# `CRED_PKI_PEERS` 里每项是 `name=host=endpoint`：endpoint（收数地址）**必填**，
+# 本脚本不签它，只把它写进 peer.json —— 没有地址的系统不允许接入。
 #
 # 产物（**一把 CA 只干一件事**，与 center 的 CA-S / CA-I 同口径）：
 #
@@ -37,7 +37,7 @@ if [[ $# -gt 0 ]]; then shift; fi
 # 所以用字符串收集参数——peer 规格里不含空白，按词切分是安全的。
 PEER_SPECS="$*"
 if [[ -z "${PEER_SPECS}" ]]; then
-  PEER_SPECS="wist-ingest=ingest.internal"
+  PEER_SPECS="wist-ingest=ingest.internal=https://ingest.internal:19443/api/v1/internal/credentials"
 fi
 
 note() { echo "  $*"; }
@@ -170,14 +170,18 @@ for spec in ${PEER_SPECS}; do
     exit 2
   fi
 
-  # 没有收数地址就不能推送，也不能被探活 —— 注册表里会显示成 `no_endpoint`，
-  # 接入脚本会拒跑（要手工分发就显式 `--manual`）。部署时就把它说出来，
-  # 不留到接入那一刻才发现“登记成功、却什么都不动”。
+  # **收数地址是必填的**：没有地址的系统推不了、也探不了，而且现在**不允许接入**
+  # （cred 会回 `endpoint_required`）。地址必须是真的 —— 所以这里不猜、也不给默认值。
   if [[ -z "${endpoint}" ]]; then
-    echo "  ⚠ ${name}（${host}）没有收数地址：将显示为 no_endpoint（不探活、不推送）" >&2
-    echo "    需要推送请写成 ${name}=${host}=https://${host}:<端口>/api/v1/internal/credentials" >&2
-    echo "    确实只做人工分发：接入时显式加 --manual。" >&2
+    echo "  ✗ ${name}（${host}）缺少收数地址。" >&2
+    echo "    写成 ${name}=${host}=https://${host}:<端口>/api/v1/internal/credentials" >&2
+    echo "    它必须是 cred 能真的连上的地址（推送与心跳都走它）；没有跳过地址这种选项。" >&2
+    exit 2
   fi
+  case "${endpoint}" in
+    https://*) ;;
+    *) echo "  ✗ ${name} 的收数地址必须是 https://（推送走双向 TLS）：${endpoint}" >&2; exit 2 ;;
+  esac
 
   dest="${IDENTITY_DIR}/onboarding/${name}"
 
@@ -199,7 +203,7 @@ for spec in ${PEER_SPECS}; do
 }
 EOF
       chmod 644 "${dest}/peer.json"
-      note "${name}（${host}）地址已更新：${endpoint:-（手工分发）}"
+      note "${name}（${host}）地址已更新：${endpoint}"
     else
       note "${name}（${host}）接入包已存在，跳过"
     fi
