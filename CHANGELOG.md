@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1-alpha] - 2026-11-05
+
+### 跟版：cred 0.6.1-alpha
+
+- 只跟镜像 tag：`CRED_IMAGE_TAG` → `v0.6.1-alpha`（cred 本版无功能变更，只是一处
+  `endpoint` 字段的注释修正 —— 与已删除的 `--advertise` 区分开）。
+- `CRED_WEB_IMAGE_TAG` 保持 `v0.3.0-alpha`（web 无改动，不重发）。
+
 ## [0.6.0-alpha] - 2026-11-05
 
 ### 跟版：cred 0.6.0（自注册接线）；种子里的收数地址回到可选
