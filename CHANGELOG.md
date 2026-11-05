@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.3-alpha] - 2026-11-06
+
+### 新增：把部署栈版本交给 cred（页面右上角的三个版本号）
+
+- cred 服务多两项：`WIST_CRED_STACK_VERSION_FILE=/config/stack-version.txt`，以及只读挂载
+  `./version.txt:/config/stack-version.txt` —— 页面上的「wist-cred-stack」那一行由此得到
+  （与 gateway 同一套取值规则：环境变量优先、其次文件，读不到就不返回该字段）。
+- `./dev/svc.sh` 起 cred 时直接用栈根的 `version.txt` 设 `WIST_CRED_STACK_VERSION`，
+  本地也能看到三层版本。
+- 跟版（发布时同步 `sys/setting/vars.yml` 的默认 tag）：`CRED_IMAGE_TAG` → `v0.6.2-alpha`、
+  `CRED_WEB_IMAGE_TAG` → `v0.4.2-alpha`。**先升栈再升服务是安全的**：旧 cred 忽略这两项，
+  只是页面上的栈版本显示 `—`。
+
 ## [0.6.2-alpha] - 2026-11-05
 
 ### 跟版：cred-web 0.4.0-alpha
