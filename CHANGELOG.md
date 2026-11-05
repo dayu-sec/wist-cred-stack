@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0-alpha] - 2026-11-05
+
+### 变更（破坏性）：收数地址必须在部署时给（跟版 cred 0.5.0 / cred-web 0.3.0）
+
+接入脚本里的 `--advertise` / `--manual` 已删除。地址是**部署登记的事实**：
+
+- `CRED_PKI_PEERS` 的第三个字段（`name=host=https://…`）**必填**：
+  `gen-pki.sh` 缺地址直接报错退出（不再只告警）。它写进 `peer.json`，cred 启动时导入。
+- `CRED_IMAGE_TAG` → `v0.5.0-alpha`，`CRED_WEB_IMAGE_TAG` → `v0.3.0-alpha`。
+- 页面新建认证系统变成「名称 + 收数地址」；命令面板不再问地址。
+- `.env.example` 跟 `sys/merged_vars.yml` 同步（两个 tag + `CRED_PKI_PEERS`）。
+
+升级注意：
+1. 先在 `sys/setting/vars.yml` 给 `CRED_PKI_PEERS` 补上地址，再 `gops sys update` —— 
+   否则 `gen-pki.sh` 会在 localize 阶段直接失败（这是有意的：没地址的系统推不了、探不了，
+   也不允许接入）。
+2. 已在注册表里的系统**不会**被种子覆盖：如果它原本就没地址，升级后显示红标「缺收数地址」，
+   在页面上补一次即可（不用重新接入）。
+
 ## [0.4.19-alpha] - 2026-11-05
 
 ### 修复：页面给的接入命令跑不通（漏了 `--advertise`）
