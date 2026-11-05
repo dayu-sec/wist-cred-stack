@@ -170,18 +170,16 @@ for spec in ${PEER_SPECS}; do
     exit 2
   fi
 
-  # **收数地址是必填的**：没有地址的系统推不了、也探不了，而且现在**不允许接入**
-  # （cred 会回 `endpoint_required`）。地址必须是真的 —— 所以这里不猜、也不给默认值。
+  # 地址**可选**：自注册（`cred-peer` 0.3+ 的初始化页）会带着它进来。
+  # 给了就是种子里的权威值（只补空，人工值优先）；没给就等对端自己报。
   if [[ -z "${endpoint}" ]]; then
-    echo "  ✗ ${name}（${host}）缺少收数地址。" >&2
-    echo "    写成 ${name}=${host}=https://${host}:<端口>/api/v1/internal/credentials" >&2
-    echo "    它必须是 cred 能真的连上的地址（推送与心跳都走它）；没有跳过地址这种选项。" >&2
-    exit 2
+    note "${name}（${host}）暂未给收数地址：等对端初始化时自报"
+  else
+    case "${endpoint}" in
+      https://*) ;;
+      *) echo "  ✗ ${name} 的收数地址必须是 https://（推送走双向 TLS）：${endpoint}" >&2; exit 2 ;;
+    esac
   fi
-  case "${endpoint}" in
-    https://*) ;;
-    *) echo "  ✗ ${name} 的收数地址必须是 https://（推送走双向 TLS）：${endpoint}" >&2; exit 2 ;;
-  esac
 
   dest="${IDENTITY_DIR}/onboarding/${name}"
 
