@@ -33,6 +33,9 @@ services:
       # 用 `TZ=:<file>` 而不是 `TZ=<zone 名>`：后者要求镜像自带 tzdata，
       # 索引不到时 glibc 会静默回落 UTC（看起来设了、其实没生效）；前者只认我们给的这份文件。
       TZ: ":/etc/tz-runtime/localtime"
+      # 部署栈版本：页面右上角的三个版本号里「wist-cred-stack」那一行。
+      # 与 gateway 同一套做法 —— 二进制不可能知道栈的版本，由栈把 version.txt 挂进来。
+      WIST_CRED_STACK_VERSION_FILE: /config/stack-version.txt
     volumes:
       # 时区数据：由 scripts/init-timezone.sh 从宿主复制进栈内（不挂宿主系统文件）。
       - ${TZ_RUNTIME_DIR}:/etc/tz-runtime:ro
@@ -58,6 +61,8 @@ services:
       # 部署态种子（每个 X 一个 `peer.json`，只读）。
       # 注册表本体在 ${CRED_CONFIG_DIR}/state/peers.json（可写）。
       - ./identity/cred/onboarding:/wist-cred/identity/onboarding:ro
+      # 部署栈版本：只读挂栈根的 version.txt（`GET /api/v1/version` 的 stack_version）。
+      - ./version.txt:/config/stack-version.txt:ro
       # 密钥文件（只读）：只有 `[server].admin_password` 的占位符向它要值。
       # 挂**目录**而非文件：源缺失时 Docker 只会建出 `.wist/` 目录，而不是把文件名建成目录。
       - ./.wist:/secrets:ro

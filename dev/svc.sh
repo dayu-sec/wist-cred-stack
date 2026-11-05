@@ -204,7 +204,10 @@ start_cred() {
   [[ -x "${CRED_BIN}" ]] || die "没有二进制：${CRED_BIN}（先不带 --no-build 跑一次）"
 
   note "启动 cred：${CRED_BIN}"
-  nohup "${CRED_BIN}" "${CONF}" >"${CRED_LOG}" 2>&1 &
+  # 部署栈版本：发布态由 compose 把 version.txt 挂进容器；dev 直接读栈根的 version.txt，
+  # 页面右上角「wist-cred-stack」那一行才有值（读不到就显示 `—`）。
+  WIST_CRED_STACK_VERSION="$(cat "${STACK_ROOT}/version.txt" 2>/dev/null || true)" \
+    nohup "${CRED_BIN}" "${CONF}" >"${CRED_LOG}" 2>&1 &
   echo $! >"${CRED_PID_FILE}"
 
   if wait_for "${BASE_URL}/healthz"; then
