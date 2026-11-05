@@ -212,3 +212,8 @@ WIST_SPC: dy-sec.tencentcloudcr.com/cloud
 
 > 旧名 `CRED_REGISTRY` 已废弃：gops 对 values 里的未知键是**静默接受**的，留着旧键只会让镜像
 > 悄悄退回默认源。`scripts/init-cred.sh` 在 localize 时会直接失败并点名要改哪个键。
+
+页面右上角的「wist-cred-stack」那一行不是变量，而是**栈根 `version.txt`**：compose 把它以只读
+方式挂到 `/config/stack-version.txt`（`WIST_CRED_STACK_VERSION_FILE`），dev 则由 `dev/svc.sh`
+直接给 `WIST_CRED_STACK_VERSION`。读不到时 `GET /api/v1/version` 不返回该字段，页面显示 `—`
+—— 看到 `—` 先查这个挂载，不要去 values 里找开关。
