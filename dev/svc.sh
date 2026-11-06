@@ -38,11 +38,12 @@
 #   WIST_AUTH_SRC     验证库（默认 ../../wist/wist-auth）
 #   DEV_ADDR          后端监听（默认 127.0.0.1:18443）
 #   WEB_PORT          页面端口（默认 5174）
-#   DEV_OPERATOR      操作者名（默认 dev）
+#   DEV_PASSWORD      dev 页面口令（默认 dev-only-password）
 #
-# 关于身份：dev 里 cred 跑 `mode = "ingress"`，`x-wist-operator` 由 vite 代理注入 ——
-# 开发时不用每次输口令。**发布态不是这么做的**：`mode = "token"`，页面有登录框，
-# 口令带在 `Authorization: Bearer` 上，由 cred 自己验。
+# 关于身份：dev 里 cred 用 `mode = "token"`（唯一的发布态模式），口令由本脚本写进 dev 配置；
+# vite 代理只在页面没带口令时补上同一把 —— 打开就能用，但登录框 / 错口令 / 401 这些路径
+# 在 dev 里仍然是真的。历史上那个 `mode = "ingress"`（反代注入 `x-wist-operator`）已删除：
+# 它等于信任一个客户端可伪造的头。
 #
 # 注：dev 循环直接用 cargo build / vite（跳过 gx 的版本同步 + 全量测试）；
 #     提交 / 发版前仍以 `gx run lint` / `gx run build` 为准。
@@ -83,7 +84,8 @@ PEER_URL="https://localhost:${PEER_PORT}"
 
 ADDR="${DEV_ADDR:-127.0.0.1:18443}"
 WEB_PORT="${WEB_PORT:-5174}"
-OPERATOR="${DEV_OPERATOR:-dev}"
+# dev 专用口令：只存在 dev 配置与 dev 进程环境里（`/dev/configs/` 已 ignore）。
+DEV_PASSWORD="${DEV_PASSWORD:-dev-only-password}"
 BASE_URL="http://${ADDR}"
 WEB_URL="http://127.0.0.1:${WEB_PORT}"
 
@@ -145,8 +147,9 @@ write_cred_config() {
 # 由 dev/svc.sh 生成，改它没用（下次 start 会覆盖）。要改就改脚本里的默认值或 env。
 [server]
 listen_addr = "${ADDR}"
-mode = "ingress"
-ingress_header = "x-wist-operator"
+mode = "token"
+# dev 专用：这个文件在 /dev/configs/（已 ignore），不需要密钥文件那套。
+admin_password = "${DEV_PASSWORD}"
 trusted_peers = ["127.0.0.1/32"]
 
 [storage]
@@ -262,11 +265,11 @@ start_web() {
   fi
 
   # 直接跑 vite 的 bin：pid 就是 vite 本身，stop 时不会留下孤儿 node。
-  note "启动 web：${WEB_BIN}（/api → ${BASE_URL}，操作者 ${OPERATOR}）"
+  note "启动 web：${WEB_BIN}（/api → ${BASE_URL}，dev 口令 ${DEV_PASSWORD}）"
   (
     cd "${WEB_SRC}"
     WIST_CRED_TARGET="${BASE_URL}" \
-      WIST_OPERATOR="${OPERATOR}" \
+      WIST_CRED_DEV_PASSWORD="${DEV_PASSWORD}" \
       WIST_CRED_WEB_PORT="${WEB_PORT}" \
       nohup "${WEB_BIN}" >"${WEB_LOG}" 2>&1 &
     echo $! >"${WEB_PID_FILE}"
@@ -317,7 +320,7 @@ peer_healthy() {
 ensure_demo_peer() {
   local code path sand
   code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${BASE_URL}/api/v1/peers" \
-    -H "x-wist-operator: ${OPERATOR}" -H 'content-type: application/json' \
+    -H "authorization: Bearer ${DEV_PASSWORD}" -H 'content-type: application/json' \
     -d "{\"name\":\"${PEER_NAME}\",\"host\":\"localhost\"}")"
   [[ "${code}" == "201" || "${code}" == "409" ]] \
     || die "建认证系统 ${PEER_NAME} 失败（HTTP ${code}）"
@@ -329,7 +332,7 @@ ensure_demo_peer() {
   mkdir -p "${sand}" "${PEER_DIR}/install"
 
   path="$(curl -fsS -X POST "${BASE_URL}/api/v1/peers/${PEER_NAME}/enrollment-tickets" \
-    -H "x-wist-operator: ${OPERATOR}" \
+    -H "authorization: Bearer ${DEV_PASSWORD}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["path"])')"
   curl -fsSL "${BASE_URL}${path}" -o "${sand}/join.sh"
   bash "${sand}/join.sh" \
@@ -473,7 +476,7 @@ cmd_start() {
   echo "    浏览器直接打开 ${BASE_URL}/ 只会看到一份自述 JSON，不是 UI。"
   echo
   echo "  GET  ${BASE_URL}/healthz"
-  echo "  GET  ${BASE_URL}/api/v1/credentials  -H 'x-wist-operator: ${OPERATOR}'   # 缺这个头会 401"
+  echo "  GET  ${BASE_URL}/api/v1/credentials  -H 'authorization: Bearer ${DEV_PASSWORD}'   # 缺这个头会 401"
   echo "  POST ${BASE_URL}/api/v1/credentials   → 用 ./dev/svc.sh token"
   local has_peer=0
   for component in "${chosen[@]}"; do
@@ -522,9 +525,9 @@ cmd_status() {
     echo "  health: ok"
     if command -v jq >/dev/null 2>&1; then
       echo "  entries: $(curl -fsS "${BASE_URL}/api/v1/credentials" \
-        -H "x-wist-operator: ${OPERATOR}" | jq '.credentials | length')"
+        -H "authorization: Bearer ${DEV_PASSWORD}" | jq '.credentials | length')"
       echo "  peers  : $(curl -fsS "${BASE_URL}/api/v1/peers" \
-        -H "x-wist-operator: ${OPERATOR}" | jq -r '[.peers[].name] | join(", ")')"
+        -H "authorization: Bearer ${DEV_PASSWORD}" | jq -r '[.peers[].name] | join(", ")')"
     fi
   else
     echo "  health: 不可达"
@@ -612,7 +615,7 @@ cmd_token() {
 
   local response
   response="$(curl -fsS -X POST "${BASE_URL}/api/v1/credentials" \
-    -H "x-wist-operator: ${OPERATOR}" \
+    -H "authorization: Bearer ${DEV_PASSWORD}" \
     -H 'content-type: application/json' \
     -d "${body}")" || die "创建失败（cred 在跑吗？）"
 
@@ -648,7 +651,7 @@ cmd_onboard() {
   local peer="${1:-wist-ingest}"
   local minted path ttl
   minted="$(curl -fsS -X POST "${BASE_URL}/api/v1/peers/${peer}/enrollment-tickets" \
-    -H "x-wist-operator: ${OPERATOR}")" || die "签发接入链接失败（peer 存在吗？）"
+    -H "authorization: Bearer ${DEV_PASSWORD}")" || die "签发接入链接失败（peer 存在吗？）"
   path="$(echo "${minted}" | jq -r .path)"
   ttl="$(echo "${minted}" | jq -r .expires_in)"
 
@@ -671,15 +674,15 @@ cmd_demo() {
 
   local created token id audience peer roles
   # 受众与角色都从注册表里取：写死的名字在接入别的系统后就失效了。
-  peer="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "x-wist-operator: ${OPERATOR}" \
+  peer="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "authorization: Bearer ${DEV_PASSWORD}" \
     | jq -r '.peers[0].name // empty')"
   [[ -n "${peer}" ]] || die "还没有认证系统，先 ./dev/svc.sh onboard 接入一个"
-  roles="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "x-wist-operator: ${OPERATOR}" \
+  roles="$(curl -fsS "${BASE_URL}/api/v1/peers" -H "authorization: Bearer ${DEV_PASSWORD}" \
     | jq -r '.peers[0].roles // [] | join(",")')"
   [[ -n "${roles}" ]] || die "${peer} 还没登记角色；接入时带 --roles a,b,c"
 
   created="$(curl -fsS -X POST "${BASE_URL}/api/v1/credentials" \
-    -H "x-wist-operator: ${OPERATOR}" \
+    -H "authorization: Bearer ${DEV_PASSWORD}" \
     -H 'content-type: application/json' \
     -d "$(jq -nc --arg audience "${peer}" --arg roles "${roles}" \
       '{subject:"ci-nightly",purpose:"dev demo",roles:($roles | split(",")),resources:{agents:["agent-7f3"]},audience:$audience}')")"
@@ -693,7 +696,7 @@ cmd_demo() {
 
   echo "③ 撤销"
   curl -fsS -X POST "${BASE_URL}/api/v1/credentials/${id}/revoke" \
-    -H "x-wist-operator: ${OPERATOR}" | jq -r '"   revision=\(.revision) revoked_at=\(.revoked_at)"'
+    -H "authorization: Bearer ${DEV_PASSWORD}" | jq -r '"   revision=\(.revision) revoked_at=\(.revoked_at)"'
 
   echo "④ 再验证（应失败 token_revoked）"
   cmd_verify "${token}" --audience "${audience}" || true
@@ -740,7 +743,7 @@ cmd_peer_check() {
 
   local role="${PEER_ROLES%%,*}" created token id
   created="$(curl -fsS -X POST "${BASE_URL}/api/v1/credentials" \
-    -H "x-wist-operator: ${OPERATOR}" -H 'content-type: application/json' \
+    -H "authorization: Bearer ${DEV_PASSWORD}" -H 'content-type: application/json' \
     -d "$(python3 -c 'import json,sys;print(json.dumps({"purpose":"peer-check","roles":[sys.argv[1]],"audience":sys.argv[2]}))' "${role}" "${PEER_NAME}")")"
   token="$(printf '%s' "${created}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')"
   id="$(printf '%s' "${created}" | python3 -c 'import sys,json;print(json.load(sys.stdin)["credential_id"])')"
@@ -749,7 +752,7 @@ cmd_peer_check() {
   echo "② peer /verify             $(peer_verify "${token}")"
 
   curl -s -o /dev/null -X POST "${BASE_URL}/api/v1/credentials/${id}/revoke" \
-    -H "x-wist-operator: ${OPERATOR}"
+    -H "authorization: Bearer ${DEV_PASSWORD}"
   echo "③ cred 撤销后再 /verify     $(peer_verify "${token}")"
   echo
   echo "闭环成立：推送 → 本地验证 → 撤销即刻生效。"

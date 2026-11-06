@@ -85,8 +85,9 @@ gops run start
   授权靠 URL 里那张一次性券 + peer IP 白名单。**那条 location 关掉了 access_log** ——
   券就是一把有期限的凭据，不能写进日志。
 
-> 开发态（`./dev/svc.sh`）用的仍是 `mode = "ingress"`（vite 代理注入操作者头）——
-> 开发时不想每次输口令；发布态一律 `token`。
+> 开发态（`./dev/svc.sh`）也是 `mode = "token"`，只是口令是本脚本写进 dev 配置的固定值
+> （`DEV_PASSWORD`，默认 `dev-only-password`；vite 代理在页面没带口令时补上同一把）——
+> **没有“免认证”的开发模式**：那个 `mode = "ingress"` 已在 cred 0.7.0 删除。
 
 ### 演示用的验证方（可选）
 
@@ -152,8 +153,9 @@ docker compose --project-directory . -f sys/docker-compose.yml --profile demo bu
 
 **页面在 <http://127.0.0.1:5174>**；`http://127.0.0.1:18443/` 只会返回一份自述 JSON。
 
-dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 vite 代理注入
-（`DEV_OPERATOR`，默认 `dev`）—— 开发时不用每次输口令。
+dev 态也只走 `mode = "token"`：口令是 `dev/svc.sh` 写进 dev 配置的固定值
+（`DEV_PASSWORD`，默认 `dev-only-password`）；vite 代理只在页面**没带**口令时补上这一把，
+所以登录框 / 错口令 / 401 在 dev 里仍然是真的。
 凭据表落 `dev/configs/state/`，与发布态互不影响。
 
 依赖同级仓库（可用 env 覆盖）：
@@ -165,14 +167,15 @@ dev 态不做入口认证：cred 跑 `mode = "ingress"`，`x-wist-operator` 由 
 | `WIST_AUTH_SRC` | `../../wist/wist-auth` |
 | `DEV_ADDR` | `127.0.0.1:18443` |
 | `WEB_PORT` | `5174` |
+| `DEV_PASSWORD` | `dev-only-password`（dev 页面口令） |
 
 ## 两条约束不是文案，是启动期会拦的
 
 | 约束 | 会在哪里被拦 |
 |---|---|
 | `listen_addr` 不能是 `0.0.0.0` / `[::]`（S1） | `wist-cred` **加载配置时直接退出** |
-| `trusted_peers` 为空（S3 前提） | 同上 |
-| 对端不在 `trusted_peers` | 每个请求 `401 untrusted_ingress_peer` + 告警 |
+| `mode = "token"` 时没有 `admin_password` | 同上 |
+| 对端不在 `trusted_peers` | 每个请求 `401 untrusted_peer` + 告警 |
 
 所以 `configs/cred/wist-cred.toml` 里的 `listen_addr` 必须是容器在 `crednet` 里的私网 IP，
 容器 IP 变了（比如改了 `CRED_NET_SUBNET` / `CRED_IP`）就要重新 localize。

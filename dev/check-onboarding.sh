@@ -4,7 +4,7 @@ set -uo pipefail
 
 STACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE="http://127.0.0.1:18443"
-OP="x-wist-operator: dev"
+OP="authorization: Bearer ${DEV_PASSWORD:-dev-only-password}"
 WORK=/tmp/wist-e2e
 
 rm -rf "$WORK"
