@@ -12,7 +12,8 @@
 #   - `token`（本栈用）：页面里输口令 → 请求带 `Authorization: Bearer <口令>`，
 #     **cred 自己验**（配置里只有口令的 sha256）。口令真值在栈根 `.wist/sec-value.yml`
 #     的 `cred_web_password`，由 `WIST_CRED_SEC_FILE` 指向的文件在**加载时**展开、算完即丢。
-#   - `ingress`：人身份由内网反代注入 `x-wist-operator`（开发态 `dev/svc.sh` 走这条）。
+#   - 曾经的 `ingress`（身份由反代注入 `x-wist-operator`）在 cred 0.7.0 已删除：
+#     那等于信任一个客户端可伪造的头。开发态（`dev/svc.sh`）也走 `token`。
 #
 # 凭据本身**不落密钥**：明文只在创建响应里出现一次，库里只有 sha256 摘要。
 # 认证系统（验证方 X）**不在这份配置里**：它们落在 `state/peers.json`，运行期可增删。
