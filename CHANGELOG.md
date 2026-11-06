@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.8-alpha] - 2026-11-06
+
+### 跟版：cred-web 0.5.1-alpha（左栏拉满整页高，版本信息挪到侧栏底部）
+
+- `CRED_WEB_IMAGE_TAG` → `v0.5.1-alpha`；`CRED_IMAGE_TAG` 保持 `v0.8.0-alpha`。
+- 页面上的变化（纯 UI，不涉接口）：认证系统左栏改成拉满整页高的侧栏，底部固定
+  「＋ 新建认证系统」与三个版本号（`wist-cred-web` / `wist-cred` / `wist-cred-stack`）；
+  顶部只留刷新 / 退出。另外**去掉了 `<760px` 的窄屏降级**（侧栏变横条那套）——
+  这一页现在按桌面宽度设计，窗口变窄时保持两栏。
+- 升级只需 `gops sys localize` + `gops run start`；接口、配置项、镜像数量都没变。
+
 ## [0.6.7-alpha] - 2026-11-06
 
 ### 跟版：cred 0.8.0-alpha（可删认证系统）+ cred-web 0.5.0-alpha（页面按系统组织）
