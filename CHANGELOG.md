@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.6-alpha] - 2026-11-06
+
+### 跟版：cred-web 0.4.3-alpha（角色色系 / 左栏菜单 / 凭据按系统汇总）
+
+- `CRED_WEB_IMAGE_TAG` → `v0.4.3-alpha`；`CRED_IMAGE_TAG` 保持 `v0.7.0-alpha`。
+- 页面上的变化（纯 UI，不涉接口）：角色 chip 按色系区分（admin 紫 / read 蓝 / write 绿 /
+  investigation:run 琥珀，其余按名字稳定散列；避开红/玫红 —— 那是「已撤销 / 出错」的语义色）；
+  角色（多选）与有效期（单选）在形状上也分开（大圆 chip vs segmented 横条）；
+  「新建访问凭证」改成「认证系统菜单 + 字段」两栏；「已发放凭据」按认证系统汇总，
+  明细默认收起、点开才铺。
+- 无需 localize 之外的任何动作：接口、配置项、镜像数量都没变。
+
 ## [0.6.5-alpha] - 2026-11-06
 
 ### 跟版：cred 0.7.0-alpha（删除了 `mode = "ingress"`）
