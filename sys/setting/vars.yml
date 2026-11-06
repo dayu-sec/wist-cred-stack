@@ -21,7 +21,7 @@ system:
   - name: CRED_IMAGE_TAG
     value: v0.8.0-alpha
   - name: CRED_WEB_IMAGE_TAG
-    value: v0.5.1-alpha
+    value: v0.5.2-alpha
   # demo peer 的镜像 tag 是 `CRED_IMAGE_TAG` + `-example`（同一包名），不单列变量。
 
   # ── 演示用验证方（可选）──

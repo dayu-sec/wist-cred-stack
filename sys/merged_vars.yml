@@ -4,7 +4,7 @@ system:
 - name: CRED_IMAGE_TAG
   value: v0.8.0-alpha
 - name: CRED_WEB_IMAGE_TAG
-  value: v0.5.1-alpha
+  value: v0.5.2-alpha
 - name: CRED_DEMO_PEER
   value: ''
 - name: CRED_DEMO_PEER_ROLES
