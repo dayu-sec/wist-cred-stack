@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.5-alpha] - 2026-11-06
+
+### 跟版：cred 0.7.0-alpha（删除了 `mode = "ingress"`）
+
+- `CRED_IMAGE_TAG` → `v0.7.0-alpha`；`CRED_WEB_IMAGE_TAG` 保持 `v0.4.2-alpha`
+  （页面这一版无需变化：它已经只走 `Authorization: Bearer`）。
+- **本栈无感**：`sys/configs/cred/wist-cred.toml.tpl` 一直是 `mode = "token"`，
+  nginx 也从不注入身份头；删掉的那个模式只存在于开发态与手写配置里。
+- 开发态跟着改：`dev/svc.sh` 生成的配置现在是 `mode = "token"` + `DEV_PASSWORD`
+  （默认 `dev-only-password`），`check-onboarding.sh` / `check-peer-health.sh` 改用 Bearer。
+- 升级注意：如果现场**自己**改过 `configs/cred/wist-cred.toml`（或从旧文档拷过配置），
+  里面还写着 `mode = "ingress"` / `ingress_header` 的话，cred 0.7.0 **拒绝启动**并会说清
+  原因 —— 删掉这两行、确认 `mode = "token"` + `admin_password = "${SEC_CRED_WEB_PASSWORD}"` 即可。
+  另外 401 码 `untrusted_ingress_peer` 已改名 `untrusted_peer`（页面不解析它，自建告警要跟）。
+
 ## [0.6.4-alpha] - 2026-11-06
 
 ### 跟版：cred 0.6.3-alpha（删除了改接入落点的接口）
