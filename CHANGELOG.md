@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.10-alpha] - 2026-11-07
+
+### 跟版：cred-web 0.6.0-alpha（中英切换 + 已发放凭据表格对齐）
+
+- `CRED_WEB_IMAGE_TAG` → `v0.6.0-alpha`；`CRED_IMAGE_TAG` 保持 `v0.8.0-alpha`。
+- 顶栏新增语言按钮（中文 ↔ English），选择记在浏览器本地（`localStorage`），
+  日期时间也跟语言走；`document.title` / `<html lang>` 一起切。
+- 「已发放凭据」表格改**定宽列**：英文文案下不再错位 / 折行；「用途」列第二行只留凭据 ID
+  （完整的 `owner · id` 放在 `title` 里）。
+- 纯 UI 变化：接口、配置项、镜像数量都不变，升级只需 `gops sys localize` + `gops run start`。
+
+
 ## [0.6.9-alpha] - 2026-11-06
 
 ### 跟版：cred-web 0.5.2-alpha（修复创建凭证后看不到令牌）
