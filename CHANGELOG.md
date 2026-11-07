@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.11-alpha] - 2026-11-07
+
+### 跟版：cred 0.8.2-alpha + cred-web 0.6.2-alpha（推送失败的错误形状）
+
+- `CRED_IMAGE_TAG` → `v0.8.2-alpha`；`CRED_WEB_IMAGE_TAG` → `v0.6.2-alpha`。
+- 凭据推送失败时，页面能分清「对方拒绝（改配置才好）」与「连不上（稍后重试）」：
+  错误体改成 `code` / `retryable` / `fields` / `correlation_id`，页面只在可重试时给「重试」按钮。
+- `enrollment_disabled`（本栈没配 CA）与本地签名失败不再被当成“可重试”。
+- 诊断更省事：一次失败只记一行 `api error: … request_id=… category=… cause=…`，
+  页面上的请求 id 与之对得上；未匹配路由 / 错误方法也返回同一个错误信封。
+- 带明文令牌的响应（签发 201、推送失败 409/502）都带 `Cache-Control: no-store`。
+- 配置项、网络、镜像数量都没变，升级只需 `gops sys localize` + `gops run start`。
+
 ## [0.6.10-alpha] - 2026-11-07
 
 ### 跟版：cred-web 0.6.0-alpha（中英切换 + 已发放凭据表格对齐）
